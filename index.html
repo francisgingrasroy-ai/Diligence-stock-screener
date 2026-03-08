@@ -11,10 +11,27 @@
 <script>
 if (!window.storage) {
   window.storage = {
-    async get(key) { const v = localStorage.getItem(key); if (v === null) return null; return { key, value: v }; },
-    async set(key, value) { localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value)); return { key, value }; },
-    async delete(key) { localStorage.removeItem(key); return { key, deleted: true }; },
-    async list(prefix) { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!prefix || k.startsWith(prefix)) keys.push(k); } return { keys }; }
+    async get(key) {
+      const v = localStorage.getItem(key);
+      if (v === null) return null;
+      return { key, value: v };
+    },
+    async set(key, value) {
+      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+      return { key, value };
+    },
+    async delete(key) {
+      localStorage.removeItem(key);
+      return { key, deleted: true };
+    },
+    async list(prefix) {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!prefix || k.startsWith(prefix)) keys.push(k);
+      }
+      return { keys };
+    }
   };
 }
 </script>
@@ -65,51 +82,46 @@ const MSCI_UNIVERSE = [
   {ticker:"NEE",name:"NextEra Energy",group:"Utilities",exchange:"NYSE"},{ticker:"SO",name:"Southern Company",group:"Utilities",exchange:"NYSE"},{ticker:"DUK",name:"Duke Energy",group:"Utilities",exchange:"NYSE"},{ticker:"AEP",name:"American Electric Power",group:"Utilities",exchange:"NYSE"},{ticker:"D",name:"Dominion Energy",group:"Utilities",exchange:"NYSE"},{ticker:"EXC",name:"Exelon",group:"Utilities",exchange:"NYSE"},{ticker:"SRE",name:"Sempra",group:"Utilities",exchange:"NYSE"},{ticker:"AES",name:"AES Corp",group:"Utilities",exchange:"NYSE"},{ticker:"CEG",name:"Constellation Energy",group:"Utilities",exchange:"NASDAQ"},{ticker:"CMS",name:"CMS Energy",group:"Utilities",exchange:"NYSE"},{ticker:"CNP",name:"CenterPoint",group:"Utilities",exchange:"NYSE"},{ticker:"DTE",name:"DTE Energy",group:"Utilities",exchange:"NYSE"},{ticker:"ED",name:"Consolidated Edison",group:"Utilities",exchange:"NYSE"},{ticker:"EIX",name:"Edison Intl",group:"Utilities",exchange:"NYSE"},{ticker:"ES",name:"Eversource",group:"Utilities",exchange:"NYSE"},{ticker:"ETR",name:"Entergy",group:"Utilities",exchange:"NYSE"},{ticker:"EVRG",name:"Evergy",group:"Utilities",exchange:"NYSE"},{ticker:"FE",name:"FirstEnergy",group:"Utilities",exchange:"NYSE"},{ticker:"LNT",name:"Alliant Energy",group:"Utilities",exchange:"NYSE"},{ticker:"NI",name:"NiSource",group:"Utilities",exchange:"NYSE"},{ticker:"NRG",name:"NRG Energy",group:"Utilities",exchange:"NYSE"},{ticker:"PCG",name:"PG&E",group:"Utilities",exchange:"NYSE"},{ticker:"PEG",name:"PSEG",group:"Utilities",exchange:"NYSE"},{ticker:"PNW",name:"Pinnacle West",group:"Utilities",exchange:"NYSE"},{ticker:"PPL",name:"PPL Corp",group:"Utilities",exchange:"NYSE"},{ticker:"VST",name:"Vistra",group:"Utilities",exchange:"NYSE"},{ticker:"WEC",name:"WEC Energy",group:"Utilities",exchange:"NYSE"},{ticker:"XEL",name:"Xcel Energy",group:"Utilities",exchange:"NASDAQ"},
 ];const MSCI_GROUPS = {"Technology":{color:"#4DA3DB",icon:"💻"},"Communication":{color:"#7B8FBD",icon:"📡"},"Consumer Disc.":{color:"#D3B87A",icon:"🛍"},"Consumer Stap.":{color:"#8BC49A",icon:"🛒"},"Healthcare":{color:"#6BBFA0",icon:"🏥"},"Financials":{color:"#B8976A",icon:"🏦"},"Industrials":{color:"#7A9ABD",icon:"🏭"},"Energy":{color:"#CF6040",icon:"⛽"},"Materials":{color:"#A08060",icon:"🪨"},"Utilities":{color:"#6A8E6A",icon:"⚡"},"Real Estate":{color:"#8A7AB0",icon:"🏢"}};
 const MSCI_GROUP_LIST = ["Technology","Communication","Consumer Disc.","Consumer Stap.","Healthcare","Financials","Industrials","Energy","Materials","Utilities","Real Estate"];
-const PORTFOLIO_GROUPS = { "Equities": { color: "#00C49A", icon: "📈" }, "Crypto": { color: "#9F7AFF", icon: "₿" }, "Alternatives": { color: "#FFB347", icon: "🔶" }, "Fixed Income": { color: "#4DA3DB", icon: "🏛" }, "Other": { color: "#6A8E6A", icon: "◆" } };
-const PORTFOLIO_GROUP_LIST = ["Equities", "Crypto", "Alternatives", "Fixed Income", "Other"];
-const PIE_COLORS = ["#4DA3DB", "#00C49A", "#D3B87A", "#9F7AFF", "#FF6B8A", "#FFB347", "#7B8FBD", "#CF3317", "#6BBFA0", "#B8976A", "#8A7AB0", "#6A8E6A"];
-const CAP_TIERS = [
-  { label: "Mega Cap", min: 200e9, color: "#D3B87A" },
-  { label: "Large Cap", min: 10e9, color: "#4DA3DB" },
-  { label: "Mid Cap", min: 2e9, color: "#00C49A" },
-  { label: "Small Cap", min: 0, color: "#9F7AFF" },
-];
-
-// ─── SVG PIE CHART ───
-const PieChart = ({ data, size = 140 }) => {
-  const total = data.reduce((s, d) => s + d.value, 0);
-  if (total === 0) return null;
-  const cx = size / 2, cy = size / 2, r = size / 2 - 4;
-  let cumAngle = -Math.PI / 2;
-  const slices = data.filter(d => d.value > 0).map((d, i) => {
-    const angle = (d.value / total) * 2 * Math.PI;
-    const startX = cx + r * Math.cos(cumAngle);
-    const startY = cy + r * Math.sin(cumAngle);
-    cumAngle += angle;
-    const endX = cx + r * Math.cos(cumAngle);
-    const endY = cy + r * Math.sin(cumAngle);
-    const large = angle > Math.PI ? 1 : 0;
-    const path = data.filter(d2 => d2.value > 0).length === 1
-      ? `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx - 0.01} ${cy - r} Z`
-      : `M ${cx} ${cy} L ${startX} ${startY} A ${r} ${r} 0 ${large} 1 ${endX} ${endY} Z`;
-    return { ...d, path, pct: Math.round((d.value / total) * 100) };
-  });
-  return <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-    <svg width={size} height={size}>
-      {slices.map((s, i) => <path key={i} d={s.path} fill={s.color} stroke="#0B1120" strokeWidth={1.5} />)}
-    </svg>
-    <div style={{ flex: 1, minWidth: 0 }}>
-      {slices.map((s, i) => <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-        <div style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-        <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#8A9BB0", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.label}</span>
-        <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 700, color: s.color }}>{s.pct}%</span>
-      </div>)}
-    </div>
-  </div>;
-};
-const DEFAULT_PORTFOLIO = [];
 const SEARCH_DB = [{t:"AAPL",n:"Apple",e:"NASDAQ"},{t:"ABBV",n:"AbbVie",e:"NYSE"},{t:"ABNB",n:"Airbnb",e:"NASDAQ"},{t:"ABT",n:"Abbott Labs",e:"NYSE"},{t:"ACN",n:"Accenture",e:"NYSE"},{t:"ADBE",n:"Adobe",e:"NASDAQ"},{t:"ADI",n:"Analog Devices",e:"NASDAQ"},{t:"ADM",n:"Archer-Daniels-Midland",e:"NYSE"},{t:"ADP",n:"ADP",e:"NASDAQ"},{t:"ADSK",n:"Autodesk",e:"NASDAQ"},{t:"AEP",n:"American Electric Power",e:"NYSE"},{t:"AES",n:"AES Corp",e:"NYSE"},{t:"AFL",n:"Aflac",e:"NYSE"},{t:"AIG",n:"AIG",e:"NYSE"},{t:"AIZ",n:"Assurant",e:"NYSE"},{t:"AJG",n:"Arthur J Gallagher",e:"NYSE"},{t:"ALL",n:"Allstate",e:"NYSE"},{t:"AMAT",n:"Applied Materials",e:"NASDAQ"},{t:"AMCR",n:"Amcor",e:"NYSE"},{t:"AMD",n:"AMD",e:"NASDAQ"},{t:"AME",n:"AMETEK",e:"NYSE"},{t:"AMGN",n:"Amgen",e:"NASDAQ"},{t:"AMP",n:"Ameriprise",e:"NYSE"},{t:"AMT",n:"American Tower",e:"NYSE"},{t:"AMZN",n:"Amazon",e:"NASDAQ"},{t:"ANET",n:"Arista Networks",e:"NYSE"},{t:"ANSS",n:"Ansys",e:"NASDAQ"},{t:"AON",n:"Aon",e:"NYSE"},{t:"AOS",n:"A.O. Smith",e:"NYSE"},{t:"APA",n:"APA Corp",e:"NYSE"},{t:"APD",n:"Air Products",e:"NYSE"},{t:"APH",n:"Amphenol",e:"NYSE"},{t:"APO",n:"Apollo Global",e:"NYSE"},{t:"APP",n:"AppLovin",e:"NASDAQ"},{t:"APTV",n:"Aptiv",e:"NYSE"},{t:"ARES",n:"Ares Management",e:"NYSE"},{t:"ARM",n:"ARM Holdings",e:"NASDAQ"},{t:"ASML",n:"ASML Holding",e:"NASDAQ"},{t:"ATD",n:"Couche-Tard",e:"NYSE"},{t:"AVGO",n:"Broadcom",e:"NASDAQ"},{t:"AVY",n:"Avery Dennison",e:"NYSE"},{t:"AXON",n:"Axon Enterprise",e:"NYSE"},{t:"AXP",n:"American Express",e:"NYSE"},{t:"AZN",n:"AstraZeneca",e:"NASDAQ"},{t:"AZO",n:"AutoZone",e:"NYSE"},{t:"BA",n:"Boeing",e:"NYSE"},{t:"BAC",n:"Bank of America",e:"NYSE"},{t:"BAM",n:"Brookfield AM",e:"NYSE"},{t:"BAX",n:"Baxter Intl",e:"NYSE"},{t:"BBY",n:"Best Buy",e:"NYSE"},{t:"BDX",n:"Becton Dickinson",e:"NYSE"},{t:"BEN",n:"Franklin Resources",e:"NYSE"},{t:"BG",n:"Bunge",e:"NYSE"},{t:"BHP",n:"BHP Group",e:"NYSE"},{t:"BIIB",n:"Biogen",e:"NASDAQ"},{t:"BIP",n:"Brookfield Infra",e:"NYSE"},{t:"BK",n:"BNY Mellon",e:"NYSE"},{t:"BKNG",n:"Booking Holdings",e:"NASDAQ"},{t:"BKR",n:"Baker Hughes",e:"NYSE"},{t:"BLK",n:"BlackRock",e:"NYSE"},{t:"BMY",n:"Bristol-Myers Squibb",e:"NYSE"},{t:"BN",n:"Brookfield Corp",e:"NYSE"},{t:"BP",n:"BP",e:"NYSE"},{t:"BR",n:"Broadridge",e:"NYSE"},{t:"BRK-B",n:"Berkshire Hathaway",e:"NYSE"},{t:"BRO",n:"Brown & Brown",e:"NYSE"},{t:"BSX",n:"Boston Scientific",e:"NYSE"},{t:"BX",n:"Blackstone",e:"NYSE"},{t:"BXP",n:"BXP Inc",e:"NYSE"},{t:"C",n:"Citigroup",e:"NYSE"},{t:"CAG",n:"Conagra Brands",e:"NYSE"},{t:"CAH",n:"Cardinal Health",e:"NYSE"},{t:"CARR",n:"Carrier Global",e:"NYSE"},{t:"CAT",n:"Caterpillar",e:"NYSE"},{t:"CB",n:"Chubb",e:"NYSE"},{t:"CBOE",n:"Cboe Global",e:"NYSE"},{t:"CCI",n:"Crown Castle",e:"NYSE"},{t:"CCL",n:"Carnival Corp",e:"NYSE"},{t:"CDNS",n:"Cadence Design",e:"NASDAQ"},{t:"CDW",n:"CDW Corp",e:"NASDAQ"},{t:"CE",n:"Celanese",e:"NYSE"},{t:"CEG",n:"Constellation Energy",e:"NASDAQ"},{t:"CF",n:"CF Industries",e:"NYSE"},{t:"CFG",n:"Citizens Financial",e:"NYSE"},{t:"CHD",n:"Church & Dwight",e:"NYSE"},{t:"CHRW",n:"C.H. Robinson",e:"NYSE"},{t:"CHTR",n:"Charter Comms",e:"NASDAQ"},{t:"CI",n:"Cigna Group",e:"NYSE"},{t:"CINF",n:"Cincinnati Finl",e:"NYSE"},{t:"CL",n:"Colgate-Palmolive",e:"NYSE"},{t:"CLX",n:"Clorox",e:"NYSE"},{t:"CMA",n:"Comerica",e:"NYSE"},{t:"CMCSA",n:"Comcast",e:"NASDAQ"},{t:"CME",n:"CME Group",e:"NASDAQ"},{t:"CMG",n:"Chipotle",e:"NYSE"},{t:"CMI",n:"Cummins",e:"NYSE"},{t:"CMS",n:"CMS Energy",e:"NYSE"},{t:"CNC",n:"Centene",e:"NYSE"},{t:"CNP",n:"CenterPoint",e:"NYSE"},{t:"CNR",n:"CN Railway",e:"NYSE"},{t:"COF",n:"Capital One",e:"NYSE"},{t:"COIN",n:"Coinbase",e:"NASDAQ"},{t:"COO",n:"CooperCompanies",e:"NYSE"},{t:"COP",n:"ConocoPhillips",e:"NYSE"},{t:"COR",n:"Cencora",e:"NYSE"},{t:"COST",n:"Costco",e:"NASDAQ"},{t:"CP",n:"CPKC",e:"NYSE"},{t:"CPAY",n:"Corpay",e:"NYSE"},{t:"CPB",n:"Campbell Soup",e:"NYSE"},{t:"CPRT",n:"Copart",e:"NASDAQ"},{t:"CPT",n:"Camden Property",e:"NYSE"},{t:"CRL",n:"Charles River Labs",e:"NYSE"},{t:"CRM",n:"Salesforce",e:"NYSE"},{t:"CRWD",n:"CrowdStrike",e:"NASDAQ"},{t:"CSCO",n:"Cisco",e:"NASDAQ"},{t:"CSGP",n:"CoStar Group",e:"NASDAQ"},{t:"CSU",n:"Constellation Soft",e:"NYSE"},{t:"CSX",n:"CSX",e:"NYSE"},{t:"CTAS",n:"Cintas",e:"NASDAQ"},{t:"CTRA",n:"Coterra Energy",e:"NYSE"},{t:"CTSH",n:"Cognizant",e:"NASDAQ"},{t:"CTVA",n:"Corteva",e:"NYSE"},{t:"CVNA",n:"Carvana",e:"NYSE"},{t:"CVS",n:"CVS Health",e:"NYSE"},{t:"CVX",n:"Chevron",e:"NYSE"},{t:"D",n:"Dominion Energy",e:"NYSE"},{t:"DAL",n:"Delta Air Lines",e:"NYSE"},{t:"DASH",n:"DoorDash",e:"NYSE"},{t:"DD",n:"DuPont",e:"NYSE"},{t:"DDOG",n:"Datadog",e:"NASDAQ"},{t:"DE",n:"Deere",e:"NYSE"},{t:"DECK",n:"Deckers Outdoor",e:"NYSE"},{t:"DEO",n:"Diageo",e:"NYSE"},{t:"DFS",n:"Discover Financial",e:"NYSE"},{t:"DG",n:"Dollar General",e:"NYSE"},{t:"DGX",n:"Quest Diagnostics",e:"NYSE"},{t:"DHI",n:"D.R. Horton",e:"NYSE"},{t:"DHR",n:"Danaher",e:"NYSE"},{t:"DIS",n:"Walt Disney",e:"NYSE"},{t:"DLR",n:"Digital Realty",e:"NYSE"},{t:"DLTR",n:"Dollar Tree",e:"NYSE"},{t:"DOV",n:"Dover Corp",e:"NYSE"},{t:"DOW",n:"Dow Inc",e:"NYSE"},{t:"DPZ",n:"Domino's Pizza",e:"NYSE"},{t:"DRI",n:"Darden Restaurants",e:"NYSE"},{t:"DTE",n:"DTE Energy",e:"NYSE"},{t:"DUK",n:"Duke Energy",e:"NYSE"},{t:"DVA",n:"DaVita",e:"NYSE"},{t:"DVN",n:"Devon Energy",e:"NYSE"},{t:"DXCM",n:"DexCom",e:"NASDAQ"},{t:"EA",n:"Electronic Arts",e:"NASDAQ"},{t:"EBAY",n:"eBay",e:"NASDAQ"},{t:"ECL",n:"Ecolab",e:"NYSE"},{t:"ED",n:"Consolidated Edison",e:"NYSE"},{t:"EFX",n:"Equifax",e:"NYSE"},{t:"EIX",n:"Edison Intl",e:"NYSE"},{t:"EL",n:"Estée Lauder",e:"NYSE"},{t:"ELV",n:"Elevance Health",e:"NYSE"},{t:"EME",n:"EMCOR Group",e:"NYSE"},{t:"EMN",n:"Eastman Chemical",e:"NYSE"},{t:"EMR",n:"Emerson Electric",e:"NYSE"},{t:"ENPH",n:"Enphase Energy",e:"NASDAQ"},{t:"EOG",n:"EOG Resources",e:"NYSE"},{t:"EPAM",n:"EPAM Systems",e:"NYSE"},{t:"EQIX",n:"Equinix",e:"NASDAQ"},{t:"EQR",n:"Equity Residential",e:"NYSE"},{t:"EQT",n:"EQT Corp",e:"NYSE"},{t:"ES",n:"Eversource",e:"NYSE"},{t:"ESS",n:"Essex Property",e:"NYSE"},{t:"ETN",n:"Eaton",e:"NYSE"},{t:"ETR",n:"Entergy",e:"NYSE"},{t:"EVRG",n:"Evergy",e:"NYSE"},{t:"EW",n:"Edwards Lifesciences",e:"NYSE"},{t:"EXC",n:"Exelon",e:"NYSE"},{t:"EXPD",n:"Expeditors",e:"NYSE"},{t:"EXPE",n:"Expedia",e:"NYSE"},{t:"EXR",n:"Extra Space Storage",e:"NYSE"},{t:"F",n:"Ford Motor",e:"NYSE"},{t:"FANG",n:"Diamondback Energy",e:"NASDAQ"},{t:"FAST",n:"Fastenal",e:"NASDAQ"},{t:"FCX",n:"Freeport-McMoRan",e:"NYSE"},{t:"FDS",n:"FactSet",e:"NYSE"},{t:"FDX",n:"FedEx",e:"NYSE"},{t:"FE",n:"FirstEnergy",e:"NYSE"},{t:"FFIV",n:"F5 Networks",e:"NASDAQ"},{t:"FI",n:"Fiserv",e:"NYSE"},{t:"FICO",n:"Fair Isaac",e:"NYSE"},{t:"FIS",n:"Fidelity Natl IS",e:"NYSE"},{t:"FISV",n:"Fiserv",e:"NASDAQ"},{t:"FITB",n:"Fifth Third",e:"NYSE"},{t:"FIX",n:"Comfort Systems",e:"NYSE"},{t:"FOX",n:"Fox Corp B",e:"NYSE"},{t:"FOXA",n:"Fox Corp A",e:"NYSE"},{t:"FRT",n:"Federal Realty",e:"NYSE"},{t:"FSLR",n:"First Solar",e:"NYSE"},{t:"FTNT",n:"Fortinet",e:"NASDAQ"},{t:"GD",n:"General Dynamics",e:"NYSE"},{t:"GDDY",n:"GoDaddy",e:"NYSE"},{t:"GE",n:"GE Aerospace",e:"NYSE"},{t:"GEHC",n:"GE HealthCare",e:"NASDAQ"},{t:"GEN",n:"Gen Digital",e:"NYSE"},{t:"GEV",n:"GE Vernova",e:"NYSE"},{t:"GFS",n:"GlobalFoundries",e:"NYSE"},{t:"GIB",n:"CGI Group",e:"NYSE"},{t:"GILD",n:"Gilead Sciences",e:"NASDAQ"},{t:"GIS",n:"General Mills",e:"NYSE"},{t:"GL",n:"Globe Life",e:"NYSE"},{t:"GLW",n:"Corning",e:"NYSE"},{t:"GM",n:"General Motors",e:"NYSE"},{t:"GNRC",n:"Generac",e:"NYSE"},{t:"GOOG",n:"Alphabet C",e:"NASDAQ"},{t:"GOOGL",n:"Alphabet",e:"NASDAQ"},{t:"GPC",n:"Genuine Parts",e:"NYSE"},{t:"GPN",n:"Global Payments",e:"NYSE"},{t:"GRMN",n:"Garmin",e:"NYSE"},{t:"GS",n:"Goldman Sachs",e:"NYSE"},{t:"GSK",n:"GSK plc",e:"NYSE"},{t:"GWW",n:"Grainger",e:"NYSE"},{t:"HAL",n:"Halliburton",e:"NYSE"},{t:"HAS",n:"Hasbro",e:"NYSE"},{t:"HBAN",n:"Huntington Banc",e:"NYSE"},{t:"HCA",n:"HCA Healthcare",e:"NYSE"},{t:"HD",n:"Home Depot",e:"NYSE"},{t:"HIG",n:"Hartford Finl",e:"NYSE"},{t:"HII",n:"Huntington Ingalls",e:"NYSE"},{t:"HLT",n:"Hilton",e:"NYSE"},{t:"HOLX",n:"Hologic",e:"NYSE"},{t:"HON",n:"Honeywell",e:"NYSE"},{t:"HOOD",n:"Robinhood",e:"NASDAQ"},{t:"HPE",n:"Hewlett Packard Enterprise",e:"NYSE"},{t:"HPQ",n:"HP Inc",e:"NYSE"},{t:"HRL",n:"Hormel Foods",e:"NYSE"},{t:"HSBC",n:"HSBC Holdings",e:"NYSE"},{t:"HSIC",n:"Henry Schein",e:"NYSE"},{t:"HST",n:"Host Hotels",e:"NYSE"},{t:"HSY",n:"Hershey",e:"NYSE"},{t:"HUBB",n:"Hubbell",e:"NYSE"},{t:"HUM",n:"Humana",e:"NYSE"},{t:"HWM",n:"Howmet Aerospace",e:"NYSE"},{t:"IBKR",n:"Interactive Brokers",e:"NASDAQ"},{t:"IBM",n:"IBM",e:"NYSE"},{t:"ICE",n:"Intercontinental Ex",e:"NYSE"},{t:"IDXX",n:"IDEXX Labs",e:"NASDAQ"},{t:"IEX",n:"IDEX Corp",e:"NYSE"},{t:"IFC",n:"Intact Financial",e:"NYSE"},{t:"IFF",n:"IFF",e:"NYSE"},{t:"ILMN",n:"Illumina",e:"NASDAQ"},{t:"INCY",n:"Incyte",e:"NYSE"},{t:"INTC",n:"Intel",e:"NASDAQ"},{t:"INTU",n:"Intuit",e:"NASDAQ"},{t:"INVH",n:"Invitation Homes",e:"NYSE"},{t:"IP",n:"Intl Paper",e:"NYSE"},{t:"IPG",n:"IPG",e:"NYSE"},{t:"IQV",n:"IQVIA",e:"NYSE"},{t:"IR",n:"Ingersoll Rand",e:"NYSE"},{t:"IRM",n:"Iron Mountain",e:"NYSE"},{t:"ISRG",n:"Intuitive Surgical",e:"NASDAQ"},{t:"IT",n:"Gartner",e:"NYSE"},{t:"ITW",n:"Illinois Tool Works",e:"NYSE"},{t:"IVZ",n:"Invesco",e:"NYSE"},{t:"J",n:"Jacobs Solutions",e:"NYSE"},{t:"JBHT",n:"J.B. Hunt",e:"NYSE"},{t:"JBL",n:"Jabil",e:"NYSE"},{t:"JCI",n:"Johnson Controls",e:"NYSE"},{t:"JKHY",n:"Jack Henry",e:"NASDAQ"},{t:"JNJ",n:"Johnson & Johnson",e:"NYSE"},{t:"JNPR",n:"Juniper Networks",e:"NYSE"},{t:"JPM",n:"JPMorgan Chase",e:"NYSE"},{t:"K",n:"Kellanova",e:"NYSE"},{t:"KDP",n:"Keurig Dr Pepper",e:"NASDAQ"},{t:"KEY",n:"KeyCorp",e:"NYSE"},{t:"KEYS",n:"Keysight",e:"NYSE"},{t:"KHC",n:"Kraft Heinz",e:"NASDAQ"},{t:"KIM",n:"Kimco Realty",e:"NYSE"},{t:"KKR",n:"KKR & Co",e:"NYSE"},{t:"KLAC",n:"KLA Corp",e:"NASDAQ"},{t:"KMB",n:"Kimberly-Clark",e:"NYSE"},{t:"KMI",n:"Kinder Morgan",e:"NYSE"},{t:"KO",n:"Coca-Cola",e:"NYSE"},{t:"KR",n:"Kroger",e:"NYSE"},{t:"KVUE",n:"Kenvue",e:"NYSE"},{t:"L",n:"Loews",e:"NYSE"},{t:"LDOS",n:"Leidos",e:"NYSE"},{t:"LEN",n:"Lennar",e:"NYSE"},{t:"LH",n:"Labcorp",e:"NYSE"},{t:"LHX",n:"L3Harris",e:"NYSE"},{t:"LIN",n:"Linde",e:"NYSE"},{t:"LKQ",n:"LKQ Corp",e:"NYSE"},{t:"LLY",n:"Eli Lilly",e:"NYSE"},{t:"LMT",n:"Lockheed Martin",e:"NYSE"},{t:"LNT",n:"Alliant Energy",e:"NYSE"},{t:"LOW",n:"Lowe's",e:"NYSE"},{t:"LRCX",n:"Lam Research",e:"NASDAQ"},{t:"LULU",n:"Lululemon",e:"NASDAQ"},{t:"LUV",n:"Southwest Airlines",e:"NYSE"},{t:"LVS",n:"Las Vegas Sands",e:"NYSE"},{t:"LW",n:"Lamb Weston",e:"NYSE"},{t:"LYB",n:"LyondellBasell",e:"NYSE"},{t:"LYV",n:"Live Nation",e:"NYSE"},{t:"MA",n:"Mastercard",e:"NYSE"},{t:"MAA",n:"Mid-America Apartment",e:"NYSE"},{t:"MAR",n:"Marriott",e:"NASDAQ"},{t:"MAS",n:"Masco",e:"NYSE"},{t:"MCD",n:"McDonald's",e:"NYSE"},{t:"MCHP",n:"Microchip Tech",e:"NASDAQ"},{t:"MCK",n:"McKesson",e:"NYSE"},{t:"MCO",n:"Moody's",e:"NYSE"},{t:"MDLZ",n:"Mondelez",e:"NASDAQ"},{t:"MDT",n:"Medtronic",e:"NYSE"},{t:"MELI",n:"MercadoLibre",e:"NASDAQ"},{t:"MET",n:"MetLife",e:"NYSE"},{t:"META",n:"Meta Platforms",e:"NASDAQ"},{t:"MFC",n:"Manulife",e:"NYSE"},{t:"MGM",n:"MGM Resorts",e:"NYSE"},{t:"MHK",n:"Mohawk Industries",e:"NYSE"},{t:"MKC",n:"McCormick",e:"NYSE"},{t:"MKTX",n:"MarketAxess",e:"NYSE"},{t:"MLM",n:"Martin Marietta",e:"NYSE"},{t:"MMC",n:"Marsh McLennan",e:"NYSE"},{t:"MMM",n:"3M",e:"NYSE"},{t:"MNST",n:"Monster Beverage",e:"NASDAQ"},{t:"MO",n:"Altria",e:"NYSE"},{t:"MOH",n:"Molina Healthcare",e:"NYSE"},{t:"MOS",n:"Mosaic",e:"NYSE"},{t:"MPC",n:"Marathon Petroleum",e:"NYSE"},{t:"MPWR",n:"Monolithic Power",e:"NASDAQ"},{t:"MRK",n:"Merck",e:"NYSE"},{t:"MRNA",n:"Moderna",e:"NASDAQ"},{t:"MRVL",n:"Marvell Tech",e:"NASDAQ"},{t:"MS",n:"Morgan Stanley",e:"NYSE"},{t:"MSCI",n:"MSCI Inc",e:"NYSE"},{t:"MSFT",n:"Microsoft",e:"NASDAQ"},{t:"MSI",n:"Motorola Solutions",e:"NYSE"},{t:"MTB",n:"M&T Bank",e:"NYSE"},{t:"MTCH",n:"Match Group",e:"NYSE"},{t:"MTD",n:"Mettler-Toledo",e:"NYSE"},{t:"MU",n:"Micron",e:"NASDAQ"},{t:"NBIS",n:"Nebius Group",e:"NYSE"},{t:"NCLH",n:"Norwegian Cruise",e:"NASDAQ"},{t:"NDAQ",n:"Nasdaq Inc",e:"NASDAQ"},{t:"NDSN",n:"Nordson",e:"NYSE"},{t:"NEE",n:"NextEra Energy",e:"NYSE"},{t:"NEM",n:"Newmont",e:"NYSE"},{t:"NET",n:"Cloudflare",e:"NYSE"},{t:"NFLX",n:"Netflix",e:"NASDAQ"},{t:"NI",n:"NiSource",e:"NYSE"},{t:"NKE",n:"Nike",e:"NYSE"},{t:"NOC",n:"Northrop Grumman",e:"NYSE"},{t:"NOW",n:"ServiceNow",e:"NYSE"},{t:"NRG",n:"NRG Energy",e:"NYSE"},{t:"NSC",n:"Norfolk Southern",e:"NYSE"},{t:"NTAP",n:"NetApp",e:"NYSE"},{t:"NTRS",n:"Northern Trust",e:"NYSE"},{t:"NUE",n:"Nucor",e:"NYSE"},{t:"NVDA",n:"NVIDIA",e:"NASDAQ"},{t:"NVO",n:"Novo Nordisk",e:"NYSE"},{t:"NVR",n:"NVR Inc",e:"NYSE"},{t:"NVS",n:"Novartis",e:"NYSE"},{t:"NWS",n:"News Corp B",e:"NYSE"},{t:"NWSA",n:"News Corp A",e:"NYSE"},{t:"NXPI",n:"NXP Semi",e:"NASDAQ"},{t:"O",n:"Realty Income",e:"NYSE"},{t:"ODFL",n:"Old Dominion",e:"NASDAQ"},{t:"OKE",n:"ONEOK",e:"NYSE"},{t:"OMC",n:"Omnicom",e:"NYSE"},{t:"ON",n:"ON Semi",e:"NASDAQ"},{t:"ORCL",n:"Oracle",e:"NYSE"},{t:"ORLY",n:"O'Reilly Auto",e:"NASDAQ"},{t:"OTIS",n:"Otis Worldwide",e:"NYSE"},{t:"OXY",n:"Occidental Petroleum",e:"NYSE"},{t:"PANW",n:"Palo Alto Networks",e:"NASDAQ"},{t:"PARA",n:"Paramount Global",e:"NYSE"},{t:"PAYC",n:"Paycom",e:"NYSE"},{t:"PAYX",n:"Paychex",e:"NASDAQ"},{t:"PCAR",n:"PACCAR",e:"NASDAQ"},{t:"PCG",n:"PG&E",e:"NYSE"},{t:"PDD",n:"PDD Holdings",e:"NASDAQ"},{t:"PEG",n:"PSEG",e:"NYSE"},{t:"PEP",n:"PepsiCo",e:"NASDAQ"},{t:"PFE",n:"Pfizer",e:"NYSE"},{t:"PG",n:"Procter & Gamble",e:"NYSE"},{t:"PGR",n:"Progressive",e:"NYSE"},{t:"PH",n:"Parker-Hannifin",e:"NYSE"},{t:"PHM",n:"PulteGroup",e:"NYSE"},{t:"PKG",n:"Packaging Corp",e:"NYSE"},{t:"PLD",n:"Prologis",e:"NYSE"},{t:"PLTR",n:"Palantir",e:"NYSE"},{t:"PM",n:"Philip Morris",e:"NYSE"},{t:"PNC",n:"PNC Financial",e:"NYSE"},{t:"PNR",n:"Pentair",e:"NYSE"},{t:"PNW",n:"Pinnacle West",e:"NYSE"},{t:"PODD",n:"Insulet",e:"NYSE"},{t:"POOL",n:"Pool Corp",e:"NYSE"},{t:"PPG",n:"PPG Industries",e:"NYSE"},{t:"PPL",n:"PPL Corp",e:"NYSE"},{t:"PRU",n:"Prudential",e:"NYSE"},{t:"PSA",n:"Public Storage",e:"NYSE"},{t:"PSX",n:"Phillips 66",e:"NYSE"},{t:"PTC",n:"PTC Inc",e:"NYSE"},{t:"PVH",n:"PVH Corp",e:"NYSE"},{t:"PWR",n:"Quanta Services",e:"NYSE"},{t:"PYPL",n:"PayPal",e:"NASDAQ"},{t:"QCOM",n:"Qualcomm",e:"NASDAQ"},{t:"QRVO",n:"Qorvo",e:"NASDAQ"},{t:"RACE",n:"Ferrari",e:"NYSE"},{t:"RCL",n:"Royal Caribbean",e:"NYSE"},{t:"REG",n:"Regency Centers",e:"NYSE"},{t:"REGN",n:"Regeneron",e:"NASDAQ"},{t:"RF",n:"Regions Financial",e:"NYSE"},{t:"RIO",n:"Rio Tinto",e:"NYSE"},{t:"RJF",n:"Raymond James",e:"NYSE"},{t:"RKLB",n:"Rocket Lab",e:"NYSE"},{t:"RL",n:"Ralph Lauren",e:"NYSE"},{t:"RMD",n:"ResMed",e:"NYSE"},{t:"ROK",n:"Rockwell Automation",e:"NYSE"},{t:"ROL",n:"Rollins",e:"NYSE"},{t:"ROP",n:"Roper Technologies",e:"NYSE"},{t:"ROST",n:"Ross Stores",e:"NASDAQ"},{t:"RSG",n:"Republic Services",e:"NYSE"},{t:"RTX",n:"RTX Corp",e:"NYSE"},{t:"RVTY",n:"Revvity",e:"NYSE"},{t:"RY",n:"Royal Bank",e:"NYSE"},{t:"SAP",n:"SAP SE",e:"NYSE"},{t:"SBAC",n:"SBA Communications",e:"NYSE"},{t:"SBUX",n:"Starbucks",e:"NASDAQ"},{t:"SCHW",n:"Charles Schwab",e:"NYSE"},{t:"SEE",n:"Sealed Air",e:"NYSE"},{t:"SHEL",n:"Shell",e:"NYSE"},{t:"SHOP",n:"Shopify",e:"NYSE"},{t:"SHW",n:"Sherwin-Williams",e:"NYSE"},{t:"SJM",n:"J.M. Smucker",e:"NYSE"},{t:"SLB",n:"SLB",e:"NYSE"},{t:"SLF",n:"Sun Life",e:"NYSE"},{t:"SMCI",n:"Super Micro",e:"NASDAQ"},{t:"SNA",n:"Snap-on",e:"NYSE"},{t:"SNPS",n:"Synopsys",e:"NASDAQ"},{t:"SNY",n:"Sanofi",e:"NASDAQ"},{t:"SO",n:"Southern Company",e:"NYSE"},{t:"SOLV",n:"Solventum",e:"NYSE"},{t:"SONY",n:"Sony Group",e:"NYSE"},{t:"SPG",n:"Simon Property",e:"NYSE"},{t:"SPGI",n:"S&P Global",e:"NYSE"},{t:"SRE",n:"Sempra",e:"NYSE"},{t:"STE",n:"Steris",e:"NYSE"},{t:"STLD",n:"Steel Dynamics",e:"NYSE"},{t:"STN",n:"Stantec",e:"NYSE"},{t:"STT",n:"State Street",e:"NYSE"},{t:"STX",n:"Seagate",e:"NYSE"},{t:"STZ",n:"Constellation Brands",e:"NYSE"},{t:"SWK",n:"Stanley Black Decker",e:"NYSE"},{t:"SWKS",n:"Skyworks",e:"NASDAQ"},{t:"SYF",n:"Synchrony",e:"NYSE"},{t:"SYK",n:"Stryker",e:"NYSE"},{t:"SYY",n:"Sysco",e:"NYSE"},{t:"T",n:"AT&T",e:"NYSE"},{t:"TAP",n:"Molson Coors",e:"NYSE"},{t:"TD",n:"TD Bank",e:"NYSE"},{t:"TDG",n:"TransDigm",e:"NYSE"},{t:"TDY",n:"Teledyne",e:"NYSE"},{t:"TEAM",n:"Atlassian",e:"NASDAQ"},{t:"TECH",n:"Bio-Techne",e:"NYSE"},{t:"TEL",n:"TE Connectivity",e:"NYSE"},{t:"TER",n:"Teradyne",e:"NYSE"},{t:"TFC",n:"Truist Financial",e:"NYSE"},{t:"TFII",n:"TFI International",e:"NYSE"},{t:"TFX",n:"Teleflex",e:"NYSE"},{t:"TGT",n:"Target",e:"NYSE"},{t:"TJX",n:"TJX Companies",e:"NYSE"},{t:"TM",n:"Toyota Motor",e:"NYSE"},{t:"TMO",n:"Thermo Fisher",e:"NYSE"},{t:"TMUS",n:"T-Mobile US",e:"NASDAQ"},{t:"TOST",n:"Toast",e:"NYSE"},{t:"TPR",n:"Tapestry",e:"NYSE"},{t:"TRGP",n:"Targa Resources",e:"NYSE"},{t:"TRI",n:"Thomson Reuters",e:"NYSE"},{t:"TRMB",n:"Trimble",e:"NYSE"},{t:"TROW",n:"T. Rowe Price",e:"NYSE"},{t:"TRV",n:"Travelers",e:"NYSE"},{t:"TSCO",n:"Tractor Supply",e:"NYSE"},{t:"TSLA",n:"Tesla",e:"NASDAQ"},{t:"TSM",n:"Taiwan Semiconductor",e:"NYSE"},{t:"TSN",n:"Tyson Foods",e:"NYSE"},{t:"TT",n:"Trane Technologies",e:"NYSE"},{t:"TTD",n:"Trade Desk",e:"NASDAQ"},{t:"TTE",n:"TotalEnergies",e:"NYSE"},{t:"TTWO",n:"Take-Two",e:"NASDAQ"},{t:"TXN",n:"Texas Instruments",e:"NASDAQ"},{t:"TXT",n:"Textron",e:"NYSE"},{t:"TYL",n:"Tyler Technologies",e:"NYSE"},{t:"UAL",n:"United Airlines",e:"NYSE"},{t:"UBER",n:"Uber",e:"NYSE"},{t:"UDR",n:"UDR Inc",e:"NYSE"},{t:"UHS",n:"Universal Health",e:"NYSE"},{t:"UL",n:"Unilever",e:"NYSE"},{t:"ULTA",n:"Ulta Beauty",e:"NYSE"},{t:"UNH",n:"UnitedHealth",e:"NYSE"},{t:"UNP",n:"Union Pacific",e:"NYSE"},{t:"UPS",n:"UPS",e:"NYSE"},{t:"URI",n:"United Rentals",e:"NYSE"},{t:"USB",n:"US Bancorp",e:"NYSE"},{t:"V",n:"Visa",e:"NYSE"},{t:"VICI",n:"VICI Properties",e:"NYSE"},{t:"VLO",n:"Valero Energy",e:"NYSE"},{t:"VLTO",n:"Veralto",e:"NYSE"},{t:"VMC",n:"Vulcan Materials",e:"NYSE"},{t:"VRSK",n:"Verisk",e:"NASDAQ"},{t:"VRSN",n:"VeriSign",e:"NASDAQ"},{t:"VRTX",n:"Vertex Pharma",e:"NASDAQ"},{t:"VST",n:"Vistra",e:"NYSE"},{t:"VTR",n:"Ventas",e:"NYSE"},{t:"VTRS",n:"Viatris",e:"NYSE"},{t:"VZ",n:"Verizon",e:"NYSE"},{t:"WAB",n:"Westinghouse Air Brake",e:"NYSE"},{t:"WAT",n:"Waters Corp",e:"NYSE"},{t:"WBA",n:"Walgreens",e:"NYSE"},{t:"WBD",n:"Warner Bros Discovery",e:"NYSE"},{t:"WDAY",n:"Workday",e:"NASDAQ"},{t:"WDC",n:"Western Digital",e:"NYSE"},{t:"WEC",n:"WEC Energy",e:"NYSE"},{t:"WELL",n:"Welltower",e:"NYSE"},{t:"WFC",n:"Wells Fargo",e:"NYSE"},{t:"WM",n:"Waste Management",e:"NYSE"},{t:"WMB",n:"Williams Companies",e:"NYSE"},{t:"WMT",n:"Walmart",e:"NYSE"},{t:"WRB",n:"W.R. Berkley",e:"NYSE"},{t:"WSP",n:"WSP Global",e:"NYSE"},{t:"WST",n:"West Pharma",e:"NYSE"},{t:"WTW",n:"Willis Towers",e:"NYSE"},{t:"WY",n:"Weyerhaeuser",e:"NYSE"},{t:"XEL",n:"Xcel Energy",e:"NASDAQ"},{t:"XOM",n:"Exxon Mobil",e:"NYSE"},{t:"XYL",n:"Xylem",e:"NYSE"},{t:"YUM",n:"Yum! Brands",e:"NYSE"},{t:"ZBH",n:"Zimmer Biomet",e:"NYSE"},{t:"ZBRA",n:"Zebra Technologies",e:"NYSE"},{t:"ZS",n:"Zscaler",e:"NASDAQ"},{t:"ZTS",n:"Zoetis",e:"NYSE"}];
-const searchStocks = q => { if (!q) return []; const l = q.toLowerCase(); return SEARCH_DB.filter(s => s.t.toLowerCase().startsWith(l) || s.n.toLowerCase().includes(l)).sort((a, b) => (a.t.toLowerCase().startsWith(l) ? 0 : 1) - (b.t.toLowerCase().startsWith(l) ? 0 : 1)).slice(0, 7); };
+const searchStocksLocal = q => { if (!q) return []; const l = q.toLowerCase(); return SEARCH_DB.filter(s => s.t.toLowerCase().startsWith(l) || s.n.toLowerCase().includes(l)).sort((a, b) => (a.t.toLowerCase().startsWith(l) ? 0 : 1) - (b.t.toLowerCase().startsWith(l) ? 0 : 1)).slice(0, 7); };
+const VALID_EXCHANGES = new Set(["NYSE","NASDAQ","AMEX","TSX","NEO","CBOE CA","NYSE American"]);
+const searchStocksAPI = async (q, signal) => {
+  if (!q || q.length < 2) return [];
+  try {
+    const results = [];
+    const seen = new Set();
+    // Parallel: exact ticker lookup + name search
+    const [profileRes, nameRes] = await Promise.all([
+      fetch(`https://financialmodelingprep.com/stable/profile?symbol=${encodeURIComponent(q.toUpperCase())}&apikey=${FMP_KEY}`, { signal }).then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch(`https://financialmodelingprep.com/stable/search-name?query=${encodeURIComponent(q)}&apikey=${FMP_KEY}&limit=10`, { signal }).then(r => r.ok ? r.json() : []).catch(() => []),
+    ]);
+    // Add exact ticker match first
+    if (Array.isArray(profileRes) && profileRes.length > 0) {
+      const p = profileRes[0];
+      if (p.symbol && p.companyName) {
+        const name = (p.companyName || "").replace(/ Inc\.?$| Corp\.?$| Ltd\.?$| plc$| SE$| Co\.?$/,"");
+        results.push({ t: p.symbol, n: name, e: p.exchangeShortName || "NYSE" });
+        seen.add(p.symbol);
+      }
+    }
+    // Add name search results
+    if (Array.isArray(nameRes)) {
+      for (const d of nameRes) {
+        if (seen.has(d.symbol)) continue;
+        if (!VALID_EXCHANGES.has(d.exchange) && !d.exchangeFullName?.includes("NASDAQ") && !d.exchangeFullName?.includes("NYSE")) continue;
+        const sym = d.symbol || "";
+        const exch = d.exchange || "";
+        const ticker = (exch === "TSX") ? sym : sym.replace(/\.[A-Z]+$/, "");
+        if (seen.has(ticker)) continue;
+        seen.add(ticker);
+        const name = (d.name || "").replace(/ Inc\.?$| Corp\.?$| Ltd\.?$| plc$| SE$| Co\.?$/,"");
+        results.push({ t: ticker, n: name, e: exch });
+        if (results.length >= 7) break;
+      }
+    }
+    return results;
+  } catch { return []; }
+};
 
 // ─── FMP API DATA FETCHING ───
 const FMP_KEY = "KZrAcH5XaaxLXuQV4mMspFjwAytz0GrN";
@@ -275,8 +287,10 @@ const scoreMetrics = (raw) => {
   else if (total >= 75 && dcfPct !== null && dcfPct > -15) { action = "Buy Zone"; actionColor = "#00C49A"; }
   else if (total >= 60 && drawdown !== null && drawdown < -15 && (dcfPct === null || dcfPct > -20)) { action = "Value Entry"; actionColor = "#3D8EFF"; }
   else if (total >= 55 && dcfPct !== null && dcfPct < -50) { action = "Wait"; actionColor = "#FF8C42"; }
+  else if (total >= 75) { action = "Manual Review"; actionColor = "#FF6B8A"; }
   else if (total >= 55) { action = "Research"; actionColor = "#FFB347"; }
-  else { action = "Pass"; actionColor = "#FF5C5C"; }
+  else if (total < 40) { action = "Pass"; actionColor = "#FF5C5C"; }
+  else { action = "Hold"; actionColor = "#4A5E78"; }
   return { finalScore: total, g1, g2, g3, metrics, flags, dcfPct, drawdown, action, actionColor };
 };
 
@@ -348,21 +362,6 @@ const IND_P = `Industry analyst. Analyze industry landscape using your knowledge
 {"industry":"n","industryGrowthRate":"X%","totalAddressableMarket":"$XB","companyMarketShare":"X%","topCompetitors":[{"name":"n","marketShare":"X%","advantage":"a","weakness":"w"}],"industryTrends":[{"trend":"t","impact":"Tailwind/Headwind","detail":"d"}],"barrierToEntry":"High/Medium/Low","disruptionRisk":"d","industrySummary":"3-4 sentences"}`;
 const SYNTH_P = `Senior PM in Akre/Smith/Buffett style. Given research data, write investment memo. Portfolio: $12M CAD targeting $100M USD, 5-10 years, concentrated. Return ONLY valid JSON.
 {"verdictOverall":"Strong Conviction Buy/Buy/Accumulate/Hold/Trim/Sell","convictionLevel":"High/Medium/Low","qualityGrade":"A+/A/A-/B+/B/B-/C+/C","oneLineSummary":"sentence","executiveMemo":"4-6 paragraph memo","compoundingThesis":"2-3 paragraphs","biggestConcern":"concern","positionSizing":"specific % for $12M","entryStrategy":"strategy","monitoringChecklist":["i1","i2","i3"],"thesisBreakers":["b1","b2"],"timeHorizon":"X years","keyQuestion":"question"}`;
-const PORTFOLIO_P = `You are a senior portfolio manager in the style of Chuck Akre, Terry Smith, and Warren Buffett. You are building a CONCENTRATED growth portfolio.
-
-INVESTOR PROFILE:
-- Age: 36, moving to Panama in ~1 year for tax optimization
-- Portfolio: CAD $12M (~USD $8.3M), annual savings capacity: $3M CAD
-- Target: USD $100M in 5-10 years (requires ~28-33% CAGR)
-- Risk tolerance: Maximum growth, fully aggressive
-- Constraints: None (leverage, alternatives, crypto all acceptable)
-- Style: Quality compounders at reasonable prices, concentrated positions
-
-TASK: Given all the research data below, build an optimal concentrated portfolio of 10-15 positions.
-
-Return ONLY valid JSON:
-{"portfolioName":"name","strategy":"2-3 paragraph strategy overview","targetCAGR":"X%","positions":[{"ticker":"T","name":"Company","weight":10,"rationale":"2-3 sentences why this position and this weight","entryStrategy":"how to enter","conviction":"High/Medium","riskNote":"key risk to monitor"}],"sectorExposure":{"Tech":40,"Healthcare":15},"riskManagement":"paragraph on risk approach","rebalancingStrategy":"when and how to rebalance","cashReserve":5,"deploymentPlan":"how to deploy $3M/yr new savings","keyMonitoringTriggers":["trigger1","trigger2"],"thesisInvalidators":["what would make you rebuild from scratch"],"estimatedPortfolioMetrics":{"weightedROIC":"X%","weightedGrowth":"X%","avgScore":80,"concentrationTop5":"X%"}}`;
-
 const RSTEPS = [
   { key: "moat", label: "Moat", icon: "🏰", color: "#00E5B0", prompt: MOAT_P, msg: (t, raw) => `Analyze competitive moat for ${t} (${raw?.sector || ''}). Key metrics: ROIC=${raw?.roic5yr}%, Gross Margin=${raw?.grossMargin}%, Moat type hint=${raw?.moatType || 'unknown'}. Return ONLY JSON.` },
   { key: "mgmt", label: "Mgmt", icon: "👤", color: "#9F7AFF", prompt: MGMT_P, msg: (t, raw) => `Management deep-dive for ${t}. Mgmt tenure=${raw?.managementTenureYears}yr, ownership=${raw?.mgmtOwnershipPct}%, insider activity=${raw?.recentInsiderActivity}. Return ONLY JSON.` },
@@ -396,23 +395,10 @@ const Sev = ({ level: l }) => <Badge text={l} color={l === "High" ? C.red : l ==
 
 // ─── MAIN COMPONENT ───
 function AlphaDeskV3() {
-  const [watchlist, setWatchlist] = useState(DEFAULT_UNIVERSE);
-  const [portfolio, setPortfolio] = useState(DEFAULT_PORTFOLIO);
-  const [mode, setMode] = useState("watchlist"); // "watchlist", "msci", "proposed", or "portfolio"
-
-  // Compute proposed portfolio list from AI recommendation
-  const proposedList = (portfolioData?.positions || []).map(p => {
-    const src = MSCI_UNIVERSE.find(s => s.ticker === p.ticker) || watchlist.find(s => s.ticker === p.ticker);
-    return { ticker: p.ticker, name: p.name || src?.name || p.ticker, group: src?.group || "Other", exchange: src?.exchange || "NYSE", weight: p.weight };
-  });
-
-  // Derive groups dynamically for proposed from actual stock groups
-  const proposedGroups = {};
-  const proposedGroupList = [];
-  proposedList.forEach(s => { if (!proposedGroups[s.group]) { const src = MSCI_GROUPS[s.group] || GROUPS[s.group] || { color: "#7B8FBD", icon: "◆" }; proposedGroups[s.group] = src; proposedGroupList.push(s.group); } });
-
-  const activeGroups = mode === "msci" ? MSCI_GROUPS : mode === "portfolio" ? PORTFOLIO_GROUPS : mode === "proposed" ? proposedGroups : GROUPS;
-  const activeGroupList = mode === "msci" ? MSCI_GROUP_LIST : mode === "portfolio" ? PORTFOLIO_GROUP_LIST : mode === "proposed" ? proposedGroupList : GROUP_LIST;
+  const [universe, setUniverse] = useState(DEFAULT_UNIVERSE);
+  const [mode, setMode] = useState("watchlist"); // "watchlist" or "msci"
+  const activeGroups = mode === "msci" ? MSCI_GROUPS : GROUPS;
+  const activeGroupList = mode === "msci" ? MSCI_GROUP_LIST : GROUP_LIST;
   const [results, setResults] = useState({});
   const [running, setRunning] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -426,6 +412,7 @@ function AlphaDeskV3() {
   const [searchQ, setSearchQ] = useState("");
   const [searchRes, setSearchRes] = useState([]);
   const [showDrop, setShowDrop] = useState(false);
+  const [searchingApi, setSearchingApi] = useState(false);
   const [addGroup, setAddGroup] = useState("Core");
   const searchRef = useRef(null);
   const [rData, setRData] = useState({});
@@ -435,110 +422,69 @@ function AlphaDeskV3() {
   const rAbort = useRef(null);
   const [apiKey, setApiKey] = useState("");
   const [showKeyInput, setShowKeyInput] = useState(false);
-  const [researchAllRunning, setResearchAllRunning] = useState(false);
-  const [researchAllProgress, setResearchAllProgress] = useState({ current: 0, total: 0, ticker: "" });
-  const researchAllAbort = useRef(null);
-  const [portfolioData, setPortfolioData] = useState(null);
-  const [portfolioBuildRunning, setPortfolioBuildRunning] = useState(false);
-  const [showPortfolioPanel, setShowPortfolioPanel] = useState(false);
-  const [prevResults, setPrevResults] = useState({});
-  const [prevScanDate, setPrevScanDate] = useState(null);
-  const [showDeltas, setShowDeltas] = useState(true);
 
   // Sync API key to module-level
   useEffect(() => { setClaudeApiKey(apiKey); }, [apiKey]);
 
-  // Persistence — load
-  const loaded = useRef(false);
+  // Persistence
   useEffect(() => { (async () => {
     try { const s = await window.storage.get("ad3-results"); if (s?.value) { const p = JSON.parse(s.value); setResults(p.results || {}); setScanDate(p.scanDate || null); } } catch {}
-    try { const s = await window.storage.get("ad3-watchlist"); if (s?.value) setWatchlist(JSON.parse(s.value)); } catch {}
-    try { const s = await window.storage.get("ad3-portfolio"); if (s?.value) setPortfolio(JSON.parse(s.value)); } catch {}
+    try { const s = await window.storage.get("ad3-universe"); if (s?.value) setUniverse(JSON.parse(s.value)); } catch {}
     try { const s = await window.storage.get("ad3-research"); if (s?.value) { const p = JSON.parse(s.value); setRData(p.data || {}); setRSteps(p.steps || {}); } } catch {}
+    // Load API key (try artifact storage first, then localStorage)
     try { const s = await window.storage.get("ad3-apikey"); if (s?.value) { setApiKey(s.value); setClaudeApiKey(s.value); } }
     catch { try { const k = localStorage.getItem("ad3-apikey"); if (k) { setApiKey(k); setClaudeApiKey(k); } } catch {} }
-    try { const s = await window.storage.get("ad3-portfolio-rec"); if (s?.value) setPortfolioData(JSON.parse(s.value)); } catch {}
-    try { const s = await window.storage.get("ad3-prev-results"); if (s?.value) { const p = JSON.parse(s.value); setPrevResults(p.results || {}); setPrevScanDate(p.scanDate || null); } } catch {}
-    loaded.current = true;
   })(); }, []);
-
-  // Persistence — save (only after initial load is complete)
-  useEffect(() => { if (!loaded.current) return; if (Object.keys(results).length) (async () => { try { await window.storage.set("ad3-results", JSON.stringify({ results, scanDate })); } catch {} })(); }, [results, scanDate]);
-  useEffect(() => { if (!loaded.current) return; (async () => { try { await window.storage.set("ad3-watchlist", JSON.stringify(watchlist)); } catch {} })(); }, [watchlist]);
-  useEffect(() => { if (!loaded.current) return; (async () => { try { await window.storage.set("ad3-portfolio", JSON.stringify(portfolio)); } catch {} })(); }, [portfolio]);
-  useEffect(() => { if (!loaded.current) return; if (Object.keys(rData).length) (async () => { try { await window.storage.set("ad3-research", JSON.stringify({ data: rData, steps: rSteps })); } catch {} })(); }, [rData, rSteps]);
+  useEffect(() => { if (Object.keys(results).length) (async () => { try { await window.storage.set("ad3-results", JSON.stringify({ results, scanDate })); } catch {} })(); }, [results, scanDate]);
+  useEffect(() => { (async () => { try { await window.storage.set("ad3-universe", JSON.stringify(universe)); } catch {} })(); }, [universe]);
+  useEffect(() => { if (Object.keys(rData).length) (async () => { try { await window.storage.set("ad3-research", JSON.stringify({ data: rData, steps: rSteps })); } catch {} })(); }, [rData, rSteps]);
   const saveApiKey = (k) => { setApiKey(k); setClaudeApiKey(k);
     try { window.storage.set("ad3-apikey", k); } catch {}
     try { localStorage.setItem("ad3-apikey", k); } catch {}
   };
 
   // Search
-  useEffect(() => { if (!searchQ) { setSearchRes([]); setShowDrop(false); return; } const t = setTimeout(() => { const r = searchStocks(searchQ); setSearchRes(r); setShowDrop(r.length > 0); }, 100); return () => clearTimeout(t); }, [searchQ]);
+  useEffect(() => {
+    if (!searchQ) { setSearchRes([]); setShowDrop(false); setSearchingApi(false); return; }
+    // Instant local results
+    const local = searchStocksLocal(searchQ);
+    setSearchRes(local); setShowDrop(local.length > 0);
+    // Debounced API search for additional results
+    if (searchQ.length < 2) { setSearchingApi(false); return; }
+    setSearchingApi(true);
+    const ac = new AbortController();
+    const t = setTimeout(async () => {
+      const api = await searchStocksAPI(searchQ, ac.signal);
+      setSearchingApi(false);
+      if (ac.signal.aborted) return;
+      // Merge: local first, then API results not already in local
+      const localTickers = new Set(local.map(s => s.t));
+      const merged = [...local, ...api.filter(s => !localTickers.has(s.t))].slice(0, 10);
+      setSearchRes(merged); setShowDrop(merged.length > 0);
+    }, 350);
+    return () => { clearTimeout(t); ac.abort(); };
+  }, [searchQ]);
 
   // Auto-switch to scorecard when scan completes for selected stock
   useEffect(() => { if (selectedTicker && results[selectedTicker]?.status === "done" && detailTab === "chart") { setDetailTab("scorecard"); } }, [results[selectedTicker]?.status]);
   useEffect(() => { const h = e => { if (searchRef.current && !searchRef.current.contains(e.target)) setShowDrop(false); }; document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h); }, []);
 
-  const addStock = s => { 
-    if (mode === "proposed") return; // proposed is read-only
-    if (mode === "portfolio") {
-      if (portfolio.find(u => u.ticker === s.t)) return;
-      setPortfolio(p => [...p, { ticker: s.t, name: s.n, group: addGroup, exchange: s.e }]);
-    } else if (mode === "watchlist") {
-      if (watchlist.find(u => u.ticker === s.t)) return;
-      setWatchlist(p => [...p, { ticker: s.t, name: s.n, group: addGroup, exchange: s.e }]);
-    }
-    setSearchQ(""); setShowDrop(false);
-  };
-  const removeStock = t => {
-    if (mode === "proposed") return; // proposed is read-only
-    if (mode === "portfolio") setPortfolio(p => p.filter(s => s.ticker !== t));
-    else if (mode === "watchlist") setWatchlist(p => p.filter(s => s.ticker !== t));
-  };
-  const switchMode = (newMode) => {
+  const addStock = s => { if (universe.find(u => u.ticker === s.t)) return; setUniverse(p => [...p, { ticker: s.t, name: s.n, group: addGroup, exchange: s.e }]); setSearchQ(""); setShowDrop(false); };
+  const removeStock = t => setUniverse(p => p.filter(s => s.ticker !== t));
+  const toggleMode = () => {
+    const newMode = mode === "watchlist" ? "msci" : "watchlist";
     setMode(newMode);
-    if (newMode === "msci") setAddGroup("Technology");
-    else if (newMode === "watchlist") setAddGroup("Core");
-    else if (newMode === "proposed") setAddGroup(proposedGroupList[0] || "Technology");
-    else setAddGroup("Equities");
-    setSelectedTicker(null); setFilterGroup("All"); setShowPortfolioPanel(false);
+    setUniverse(newMode === "msci" ? MSCI_UNIVERSE : DEFAULT_UNIVERSE);
+    setResults({}); setSelectedTicker(null); setScanDate(null); setFilterGroup("All");
+    setAddGroup(newMode === "msci" ? "Technology" : "Core");
   };
-
-  // Auto-populate watchlist when scan finishes
-  const [prevRunning, setPrevRunning] = useState(false);
-  useEffect(() => {
-    if (prevRunning && !running && mode === "msci") {
-      // MSCI scan just finished — REPLACE watchlist with qualifying stocks
-      const qualifyingActions = ["Strong Conviction", "Value Entry", "Buy Zone", "Research"];
-      const newWatchlist = [];
-      Object.entries(results).forEach(([ticker, data]) => {
-        if (data.status === "done" && data.scorecard?.action && qualifyingActions.includes(data.scorecard.action)) {
-          const sourceStock = MSCI_UNIVERSE.find(s => s.ticker === ticker);
-          if (sourceStock) {
-            newWatchlist.push({ ticker: sourceStock.ticker, name: sourceStock.name, group: sourceStock.group, exchange: sourceStock.exchange });
-          }
-        }
-      });
-      if (newWatchlist.length > 0) {
-        setWatchlist(newWatchlist);
-      }
-    }
-    setPrevRunning(running);
-  }, [running]);
 
   // ─── SCAN using FMP ───
   const runScan = useCallback(async () => {
-    const scanList = mode === "msci" ? MSCI_UNIVERSE : mode === "portfolio" ? portfolio : mode === "proposed" ? proposedList : watchlist;
-    // Snapshot current results as previous before re-scanning
-    if (Object.keys(results).length > 0 && scanDate) {
-      setPrevResults(results);
-      setPrevScanDate(scanDate);
-      try { await window.storage.set("ad3-prev-results", JSON.stringify({ results, scanDate })); } catch {}
-    }
     setRunning(true); setScanDate(new Date().toISOString()); abortRef.current = new AbortController();
-    for (let i = 0; i < scanList.length; i++) {
+    for (let i = 0; i < universe.length; i++) {
       if (abortRef.current.signal.aborted) break;
-      const stock = scanList[i]; setCurrentIdx(i);
+      const stock = universe[i]; setCurrentIdx(i);
       setResults(p => ({ ...p, [stock.ticker]: { ...(p[stock.ticker] || {}), status: "loading" } }));
       try {
         const raw = await fetchStockData(stock.ticker, stock.exchange, abortRef.current.signal);
@@ -557,14 +503,14 @@ function AlphaDeskV3() {
           setResults(p => ({ ...p, [stock.ticker]: { status: "error", error: err2.message } }));
         }
       }
-      if (i < scanList.length - 1) await new Promise(r => setTimeout(r, 800));
+      if (i < universe.length - 1) await new Promise(r => setTimeout(r, 800));
     }
     setRunning(false);
-  }, [watchlist, portfolio, proposedList.length, mode]);
+  }, [universe]);
 
   // ─── SINGLE STOCK SCAN ───
   const scanSingle = async (ticker) => {
-    const stock = activeList.find(s => s.ticker === ticker);
+    const stock = universe.find(s => s.ticker === ticker);
     if (!stock || results[ticker]?.status === "done" || results[ticker]?.status === "loading") return;
     setResults(p => ({ ...p, [ticker]: { ...(p[ticker] || {}), status: "loading" } }));
     try {
@@ -636,7 +582,7 @@ function AlphaDeskV3() {
       await waitWithCountdown(15, rAbort.current.signal, "Preparing synthesis");
       setRS("synthesis", "loading"); setRWaitMsg("");
       try {
-        const stock = activeList.find(s => s.ticker === ticker);
+        const stock = universe.find(s => s.ticker === ticker);
         const msg = `Ticker:${ticker}\nCompany:${stock?.name}\nScore:${results[ticker]?.scorecard?.finalScore}/100\nRaw data:${truncateJSON(raw)}\nMOAT:${truncateJSON(col.moat)}\nMGMT:${truncateJSON(col.mgmt)}\nEARNINGS:${truncateJSON(col.earnings)}\nRISKS:${truncateJSON(col.risks)}\nINDUSTRY:${truncateJSON(col.industry)}\nSynthesize into final investment memo. Return ONLY JSON.`;
         const res = await callClaude(SYNTH_P, msg, rAbort.current.signal);
         setRData(p => ({ ...p, [ticker]: { ...(p[ticker] || {}), synthesis: res } }));
@@ -648,204 +594,18 @@ function AlphaDeskV3() {
     setRWaitMsg(""); setRRunning(null);
   };
 
-  // ─── RESEARCH ALL — runs deep research on all scanned stocks sequentially ───
-  const runResearchAll = async () => {
-    if (researchAllRunning || !apiKey) return;
-    researchAllAbort.current = new AbortController();
-    setResearchAllRunning(true);
-
-    // Only research stocks with qualifying actions (regardless of mode)
-    const qualifyingActions = ["Strong Conviction", "Value Entry", "Buy Zone", "Research"];
-    const candidates = activeList.filter(s => {
-      const r = results[s.ticker];
-      return r?.status === "done" && r.scorecard?.action && qualifyingActions.includes(r.scorecard.action) && !rData[s.ticker]?.synthesis;
-    });
-    setResearchAllProgress({ current: 0, total: candidates.length, ticker: "" });
-
-    for (let idx = 0; idx < candidates.length; idx++) {
-      if (researchAllAbort.current.signal.aborted) break;
-      const stock = candidates[idx];
-      const ticker = stock.ticker;
-      setResearchAllProgress({ current: idx + 1, total: candidates.length, ticker });
-
-      // Run research for this stock inline (simplified version of runResearch)
-      const init = {}; RSTEPS.forEach(s => { init[s.key] = "pending"; }); setRSteps(p => ({ ...p, [ticker]: init }));
-      const setRS = (k, st) => setRSteps(p => ({ ...p, [ticker]: { ...(p[ticker] || {}), [k]: st } }));
-      const col = {};
-      const raw = results[ticker]?.raw || {};
-
-      // Steps 1-5
-      const researchSteps = RSTEPS.slice(0, 5);
-      let stepFailed = false;
-      for (let i = 0; i < researchSteps.length; i++) {
-        const step = researchSteps[i];
-        if (researchAllAbort.current.signal.aborted) { stepFailed = true; break; }
-        setRS(step.key, "loading");
-        try {
-          const res = await callClaude(step.prompt, step.msg(ticker, raw), researchAllAbort.current.signal);
-          col[step.key] = res;
-          setRData(p => ({ ...p, [ticker]: { ...(p[ticker] || {}), [step.key]: res } }));
-          setRS(step.key, "done");
-        } catch (e) {
-          if (e.message === "Aborted") { stepFailed = true; break; }
-          console.log(`[ResearchAll] ${ticker} step ${step.key} failed: ${e.message}`);
-          setRS(step.key, "error");
-        }
-        if (i < researchSteps.length - 1 && !researchAllAbort.current.signal.aborted) {
-          await new Promise(r => setTimeout(r, 15000));
-        }
-      }
-
-      // Step 6: Synthesis
-      if (!stepFailed && !researchAllAbort.current.signal.aborted) {
-        await new Promise(r => setTimeout(r, 15000));
-        setRS("synthesis", "loading");
-        try {
-          const msg = `Ticker:${ticker}\nCompany:${stock.name}\nScore:${results[ticker]?.scorecard?.finalScore}/100\nRaw data:${truncateJSON(raw)}\nMOAT:${truncateJSON(col.moat)}\nMGMT:${truncateJSON(col.mgmt)}\nEARNINGS:${truncateJSON(col.earnings)}\nRISKS:${truncateJSON(col.risks)}\nINDUSTRY:${truncateJSON(col.industry)}\nSynthesize into final investment memo. Return ONLY JSON.`;
-          const res = await callClaude(SYNTH_P, msg, researchAllAbort.current.signal);
-          setRData(p => ({ ...p, [ticker]: { ...(p[ticker] || {}), synthesis: res } }));
-          setRS("synthesis", "done");
-        } catch (e) {
-          if (e.message !== "Aborted") { setRS("synthesis", "error"); }
-        }
-      }
-
-      // Cooldown between stocks
-      if (idx < candidates.length - 1 && !researchAllAbort.current.signal.aborted) {
-        await new Promise(r => setTimeout(r, 10000));
-      }
-    }
-
-    setResearchAllRunning(false);
-    setResearchAllProgress({ current: 0, total: 0, ticker: "" });
-  };
-
-  // ─── BUILD PORTFOLIO — sends all research to Claude for portfolio recommendation ───
-  const buildPortfolio = async () => {
-    if (portfolioBuildRunning || !apiKey) return;
-    setPortfolioBuildRunning(true);
-
-    // Gather all stocks with complete research (synthesis exists)
-    const researchedStocks = activeList.filter(s => rData[s.ticker]?.synthesis && results[s.ticker]?.scorecard);
-    
-    // Build condensed data payload for Claude
-    const stockSummaries = researchedStocks.map(s => {
-      const sc = results[s.ticker].scorecard;
-      const syn = rData[s.ticker].synthesis;
-      const raw = results[s.ticker].raw;
-      return `${s.ticker} | ${s.name} | Score:${sc.finalScore}/100 Q:${sc.g1}/55 R:${sc.g2}/30 P:${sc.g3}/15 | Action:${sc.action} | DCF:${sc.dcfPct !== null ? sc.dcfPct + '%' : 'N/A'} | Drawdown:${sc.drawdown !== null ? sc.drawdown + '%' : 'N/A'} | ROIC:${raw?.roic5yr}% | Margin:${raw?.grossMargin}% | Growth:${raw?.revenueGrowth3yr}% | Verdict:${syn.verdictOverall || 'N/A'} | Quality:${syn.qualityGrade || 'N/A'} | Conviction:${syn.convictionLevel || 'N/A'} | Summary:${(syn.oneLineSummary || '').slice(0, 120)} | Concern:${(syn.biggestConcern || '').slice(0, 100)} | Sizing hint:${syn.positionSizing || 'N/A'}`;
-    }).join("\n");
-
-    const userMsg = `I have completed deep research on ${researchedStocks.length} stocks. Build me an optimal concentrated portfolio of 10-15 positions from these candidates:\n\n${stockSummaries}\n\nReturn ONLY JSON matching the schema in your instructions.`;
-
-    try {
-      const res = await callClaude(PORTFOLIO_P, userMsg);
-      setPortfolioData(res);
-      setShowPortfolioPanel(true);
-      try { await window.storage.set("ad3-portfolio-rec", JSON.stringify(res)); } catch {}
-    } catch (e) {
-      console.log(`[BuildPortfolio] Failed: ${e.message}`);
-      alert(`Portfolio build failed: ${e.message}`);
-    }
-    setPortfolioBuildRunning(false);
-  };
-
   // Computed
-  // Active list based on mode
-  const activeList = mode === "msci" ? MSCI_UNIVERSE : mode === "portfolio" ? portfolio : mode === "proposed" ? proposedList : watchlist;
-  const doneList = activeList.filter(s => results[s.ticker]?.status === "done").map(s => ({ ...s, ...results[s.ticker] })).filter(s => filterGroup === "All" || s.group === filterGroup)
+  const doneList = universe.filter(s => results[s.ticker]?.status === "done").map(s => ({ ...s, ...results[s.ticker] })).filter(s => filterGroup === "All" || s.group === filterGroup)
     .sort((a, b) => { if (sortBy === "score") return (b.scorecard?.finalScore || 0) - (a.scorecard?.finalScore || 0); if (sortBy === "quality") return (b.scorecard?.g1 || 0) - (a.scorecard?.g1 || 0); if (sortBy === "runway") return (b.scorecard?.g2 || 0) - (a.scorecard?.g2 || 0); if (sortBy === "price") return (b.scorecard?.g3 || 0) - (a.scorecard?.g3 || 0); if (sortBy === "opportunity") return ((b.scorecard?.dcfPct || 0) + Math.abs(b.scorecard?.drawdown || 0)) - ((a.scorecard?.dcfPct || 0) + Math.abs(a.scorecard?.drawdown || 0)); return 0; });
-  const doneCount = activeList.filter(s => results[s.ticker]?.status === "done").length;
-  const errCount = activeList.filter(s => results[s.ticker]?.status === "error").length;
-  const progress = activeList.length > 0 ? Math.round(((doneCount + errCount) / activeList.length) * 100) : 0;
-  const sel = selectedTicker ? { ...activeList.find(s => s.ticker === selectedTicker), ...results[selectedTicker] } : null;
+  const doneCount = universe.filter(s => results[s.ticker]?.status === "done").length;
+  const errCount = universe.filter(s => results[s.ticker]?.status === "error").length;
+  const progress = universe.length > 0 ? Math.round(((doneCount + errCount) / universe.length) * 100) : 0;
+  const sel = selectedTicker ? { ...universe.find(s => s.ticker === selectedTicker), ...results[selectedTicker] } : null;
   const selR = selectedTicker ? rData[selectedTicker] : null;
   const selRS = selectedTicker ? rSteps[selectedTicker] : null;
   const isR = rRunning === selectedTicker;
   const buckets = { "Strong Conviction": [], "Buy Zone": [], "Value Entry": [], "Research": [], "Wait": [] };
   doneList.forEach(s => { const a = s.scorecard?.action; if (a && buckets[a]) buckets[a].push(s); });
-
-  // ─── DELTA TRACKER — compare current vs previous scan ───
-  const deltas = [];
-  if (Object.keys(prevResults).length > 0 && doneCount > 0) {
-    doneList.forEach(s => {
-      const prev = prevResults[s.ticker];
-      if (!prev || prev.status !== "done" || !prev.scorecard) return;
-      const curr = s.scorecard;
-      const prevSc = prev.scorecard;
-      const scoreDelta = curr.finalScore - prevSc.finalScore;
-      const actionChanged = curr.action !== prevSc.action;
-      const drawdownDelta = (curr.drawdown || 0) - (prevSc.drawdown || 0);
-      const dcfDelta = (curr.dcfPct || 0) - (prevSc.dcfPct || 0);
-
-      const alerts = [];
-      if (scoreDelta <= -10) alerts.push({ type: "danger", msg: `Score dropped ${scoreDelta}pts (${prevSc.finalScore}→${curr.finalScore})` });
-      else if (scoreDelta >= 10) alerts.push({ type: "positive", msg: `Score jumped +${scoreDelta}pts (${prevSc.finalScore}→${curr.finalScore})` });
-      else if (scoreDelta <= -5) alerts.push({ type: "warning", msg: `Score slipped ${scoreDelta}pts (${prevSc.finalScore}→${curr.finalScore})` });
-
-      if (actionChanged) {
-        const upgrade = ["Pass", "Wait", "Research", "Value Entry", "Buy Zone", "Strong Conviction"];
-        const prevRank = upgrade.indexOf(prevSc.action);
-        const currRank = upgrade.indexOf(curr.action);
-        if (currRank < prevRank) alerts.push({ type: "danger", msg: `Downgraded: ${prevSc.action} → ${curr.action}` });
-        else alerts.push({ type: "positive", msg: `Upgraded: ${prevSc.action} → ${curr.action}` });
-      }
-
-      if (drawdownDelta < -15) alerts.push({ type: "warning", msg: `Drawdown deepened ${drawdownDelta}pts (now ${curr.drawdown}%)` });
-      if (dcfDelta > 20) alerts.push({ type: "positive", msg: `DCF improved +${dcfDelta}pts (now ${curr.dcfPct > 0 ? "+" : ""}${curr.dcfPct}%)` });
-      if (dcfDelta < -20) alerts.push({ type: "warning", msg: `DCF deteriorated ${dcfDelta}pts (now ${curr.dcfPct > 0 ? "+" : ""}${curr.dcfPct}%)` });
-
-      if (alerts.length > 0) deltas.push({ ticker: s.ticker, name: s.name, score: curr.finalScore, action: curr.action, actionColor: curr.actionColor, alerts });
-    });
-    // New stocks not in previous scan
-    doneList.forEach(s => {
-      if (!prevResults[s.ticker] && s.scorecard?.finalScore >= 70) {
-        deltas.push({ ticker: s.ticker, name: s.name, score: s.scorecard.finalScore, action: s.scorecard.action, actionColor: s.scorecard.actionColor, alerts: [{ type: "new", msg: `New entry — Score ${s.scorecard.finalScore}` }] });
-      }
-    });
-    // Stocks that disappeared (were in prev, now Pass or gone)
-    Object.entries(prevResults).forEach(([ticker, prev]) => {
-      if (prev.status !== "done" || !prev.scorecard) return;
-      const curr = results[ticker];
-      if (curr?.status === "done" && curr.scorecard && prev.scorecard.action !== "Pass" && curr.scorecard.action === "Pass") {
-        deltas.push({ ticker, name: prev.raw?.companyName || ticker, score: curr.scorecard.finalScore, action: "Pass", actionColor: "#FF5C5C", alerts: [{ type: "danger", msg: `Fell to Pass (was ${prev.scorecard.action}, score ${prev.scorecard.finalScore}→${curr.scorecard.finalScore})` }] });
-      }
-    });
-    // Sort: dangers first, then warnings, then positives
-    deltas.sort((a, b) => {
-      const pri = d => d.alerts.some(a => a.type === "danger") ? 0 : d.alerts.some(a => a.type === "warning") ? 1 : 2;
-      return pri(a) - pri(b);
-    });
-  }
-
-  // Precompute research counts for header buttons
-  const qualActsForResearch = ["Strong Conviction", "Value Entry", "Buy Zone", "Research"];
-  const researchableCount = activeList.filter(s => { const r = results[s.ticker]; return r?.status === "done" && r.scorecard?.action && qualActsForResearch.includes(r.scorecard.action) && !rData[s.ticker]?.synthesis; }).length;
-  const researchedCount = Object.keys(rData).filter(t => rData[t]?.synthesis).length;
-
-  // Precompute portfolio analytics
-  const showAnalytics = (mode === "proposed" || mode === "portfolio") && doneCount > 0;
-  const analyticsStocks = showAnalytics ? activeList.filter(s => results[s.ticker]?.status === "done").map(s => ({ ...s, ...results[s.ticker] })) : [];
-  const hasAnalyticsWeights = mode === "proposed" && analyticsStocks.some(s => s.weight);
-  const analyticsTotalWeight = hasAnalyticsWeights ? analyticsStocks.reduce((sum, s) => sum + (s.weight || 0), 0) : 0;
-  const getAnalyticsWeight = s => hasAnalyticsWeights ? ((s.weight || 0) / (analyticsTotalWeight || 1)) : (1 / (analyticsStocks.length || 1));
-
-  let analyticsSectors = [], analyticsCaps = [], analyticsMetrics = {}, analyticsTopHoldings = [], analyticsTop5Weight = 0;
-  if (analyticsStocks.length > 0) {
-    const sectors = {};
-    analyticsStocks.forEach(s => { const sec = s.raw?.sector || s.group || "Other"; sectors[sec] = (sectors[sec] || 0) + getAnalyticsWeight(s) * 100; });
-    analyticsSectors = Object.entries(sectors).sort((a, b) => b[1] - a[1]).map(([label, value], i) => ({ label, value: Math.round(value * 10) / 10, color: PIE_COLORS[i % PIE_COLORS.length] }));
-
-    const capDist = {};
-    analyticsStocks.forEach(s => { const mc = s.raw?.marketCap || 0; const tier = CAP_TIERS.find(t => mc >= t.min) || CAP_TIERS[CAP_TIERS.length - 1]; capDist[tier.label] = (capDist[tier.label] || 0) + getAnalyticsWeight(s) * 100; });
-    analyticsCaps = CAP_TIERS.filter(t => capDist[t.label]).map(t => ({ label: t.label, value: Math.round((capDist[t.label] || 0) * 10) / 10, color: t.color }));
-
-    let wROIC = 0, wMargin = 0, wGrowth = 0, wScore = 0, wPE = 0, wFCFY = 0, peCount = 0;
-    analyticsStocks.forEach(s => { const w = getAnalyticsWeight(s); wROIC += (parseFloat(s.raw?.roic5yr) || 0) * w; wMargin += (parseFloat(s.raw?.grossMargin) || 0) * w; wGrowth += (parseFloat(s.raw?.revenueGrowth3yr) || 0) * w; wScore += (s.scorecard?.finalScore || 0) * w; if (s.raw?.peRatio && s.raw.peRatio > 0) { wPE += s.raw.peRatio * w; peCount += w; } wFCFY += (s.raw?.fcfYield || 0) * w; });
-    analyticsTopHoldings = hasAnalyticsWeights ? [...analyticsStocks].sort((a, b) => (b.weight || 0) - (a.weight || 0)).slice(0, 5) : [...analyticsStocks].sort((a, b) => (b.scorecard?.finalScore || 0) - (a.scorecard?.finalScore || 0)).slice(0, 5);
-    analyticsTop5Weight = hasAnalyticsWeights ? analyticsTopHoldings.reduce((s, h) => s + (h.weight || 0), 0) : Math.round((5 / analyticsStocks.length) * 100);
-    analyticsMetrics = { wScore: Math.round(wScore), wROIC: Math.round(wROIC * 10) / 10, wMargin: Math.round(wMargin * 10) / 10, wGrowth: Math.round(wGrowth * 10) / 10, wPE: peCount > 0 ? Math.round((wPE / peCount) * 10) / 10 : null, wFCFY: Math.round(wFCFY * 10) / 10 };
-  }
 
   return (
     <div style={{ fontFamily: "'Georgia','Times New Roman',serif", background: `linear-gradient(180deg, #0A1020 0%, #0E1628 50%, #0B1222 100%)`, height: "100vh", color: "#D8E2F0", display: "flex", flexDirection: "column" }}>
@@ -878,63 +638,44 @@ function AlphaDeskV3() {
 
         {/* Search */}
         <div ref={searchRef} style={{ flex: 1, maxWidth: 360, position: "relative" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(14,18,32,0.8)", border: `1px solid ${showDrop ? "rgba(61,142,255,0.5)" : "rgba(255,255,255,0.06)"}`, borderRadius: showDrop ? "8px 8px 0 0" : 8, padding: "7px 14px", backdropFilter: "blur(8px)", transition: "border-color 0.2s" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(14,18,32,0.8)", border: `1px solid ${(showDrop || (searchingApi && searchQ.length >= 2)) ? "rgba(61,142,255,0.5)" : "rgba(255,255,255,0.06)"}`, borderRadius: (showDrop || (searchingApi && searchQ.length >= 2)) ? "8px 8px 0 0" : 8, padding: "7px 14px", backdropFilter: "blur(8px)", transition: "border-color 0.2s" }}>
             <span style={{ color: "#4A6080", fontSize: 14 }}>⌕</span>
-            <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search ticker or company to add…" onFocus={() => searchRes.length > 0 && setShowDrop(true)}
+            <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search any public stock (ticker or name)…" onFocus={() => searchRes.length > 0 && setShowDrop(true)}
               style={{ background: "none", border: "none", outline: "none", color: "#D8E2F0", fontSize: 13, fontFamily: "'DM Sans',sans-serif", flex: 1, fontWeight: 500 }} />
             <select value={addGroup} onChange={e => setAddGroup(e.target.value)} style={{ background: "#0E1220", border: "1px solid rgba(255,255,255,0.08)", color: activeGroups[addGroup]?.color, fontSize: 10, borderRadius: 5, padding: "3px 6px", fontFamily: "'DM Sans',sans-serif", fontWeight: 600, cursor: "pointer" }}>
               {activeGroupList.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
-          {showDrop && <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 300, background: "rgba(14,18,32,0.95)", border: "1px solid rgba(61,142,255,0.4)", borderTop: "none", borderRadius: "0 0 8px 8px", boxShadow: "0 20px 60px rgba(0,0,0,0.8)", backdropFilter: "blur(12px)" }}>
-            {searchRes.map((s, i) => { const exists = activeList.find(u => u.ticker === s.t);
+          {(showDrop || (searchingApi && searchQ.length >= 2)) && <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 300, background: "rgba(14,18,32,0.95)", border: "1px solid rgba(61,142,255,0.4)", borderTop: "none", borderRadius: "0 0 8px 8px", boxShadow: "0 20px 60px rgba(0,0,0,0.8)", backdropFilter: "blur(12px)" }}>
+            {searchRes.map((s, i) => { const exists = universe.find(u => u.ticker === s.t);
               return <div key={s.t} onMouseDown={() => !exists && addStock(s)} style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", cursor: exists ? "default" : "pointer", borderBottom: i < searchRes.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", opacity: exists ? .4 : 1, transition: "background 0.15s" }}
                 onMouseEnter={e => { if (!exists) e.currentTarget.style.background = "rgba(61,142,255,0.08)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}><span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 700, color: "#3D8EFF", minWidth: 44 }}>{s.t}</span><span style={{ fontSize: 12, color: "#B0C0D8" }}>{s.n}</span></div>
                 <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: exists ? "#00C49A" : "#4A6080" }}>{exists ? "✓ added" : s.e}</span></div> })}
+            {searchingApi && <div style={{ padding: "10px 14px", fontSize: 11, color: "#4A6080", textAlign: "center" }}>Searching all markets…</div>}
+            {!searchingApi && searchRes.length === 0 && searchQ.length >= 2 && <div style={{ padding: "10px 14px", fontSize: 11, color: "#4A6080", textAlign: "center" }}>No stocks found</div>}
           </div>}
         </div>
 
         {/* Scan controls */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <select value={mode} onChange={e => switchMode(e.target.value)} style={{ fontFamily: "'DM Sans',sans-serif", background: "rgba(14,18,32,0.9)", border: `1px solid ${mode === "msci" ? "rgba(77,163,219,0.4)" : mode === "portfolio" ? "rgba(0,196,154,0.4)" : mode === "proposed" ? "rgba(211,184,122,0.4)" : "rgba(211,184,122,0.3)"}`, borderRadius: 8, padding: "6px 14px", fontSize: 10, fontWeight: 700, color: mode === "msci" ? "#4DA3DB" : mode === "portfolio" ? "#00C49A" : mode === "proposed" ? "#FFD700" : "#D3B87A", cursor: "pointer", letterSpacing: "0.02em", outline: "none" }}>
-            <option value="watchlist" style={{ background: "#0E1220", color: "#D3B87A" }}>📋 My Watchlist ({watchlist.length})</option>
-            <option value="msci" style={{ background: "#0E1220", color: "#4DA3DB" }}>🌍 MSCI World (520)</option>
-            <option value="proposed" style={{ background: "#0E1220", color: "#FFD700" }}>📊 Proposed Portfolio ({proposedList.length})</option>
-            <option value="portfolio" style={{ background: "#0E1220", color: "#00C49A" }}>💼 My Real Portfolio ({portfolio.length})</option>
-          </select>
+          <button onClick={toggleMode} style={{ fontFamily: "'DM Sans',sans-serif", background: mode === "msci" ? "rgba(77,163,219,0.15)" : "rgba(211,184,122,0.1)", border: `1px solid ${mode === "msci" ? "rgba(77,163,219,0.4)" : "rgba(211,184,122,0.3)"}`, borderRadius: 8, padding: "6px 14px", fontSize: 10, fontWeight: 700, color: mode === "msci" ? "#4DA3DB" : "#D3B87A", cursor: "pointer", letterSpacing: "0.02em" }}>
+            {mode === "msci" ? "🌍 MSCI World (520)" : "📋 My Watchlist ("+universe.length+")"}
+          </button>
           <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: "#5A7090", letterSpacing: "0.12em", fontWeight: 600 }}>SCAN</div>
           <div style={{ width: 100, height: 4, background: "rgba(255,255,255,0.04)", borderRadius: 3, overflow: "hidden" }}>
             <div style={{ height: "100%", background: "linear-gradient(90deg, #D3B87A, #4DA3DB)", width: `${progress}%`, borderRadius: 3, transition: "width .5s ease", boxShadow: progress > 0 ? "0 0 12px rgba(211,184,122,0.4)" : "none" }} />
           </div>
-          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#D3B87A", fontWeight: 700 }}>{doneCount}/{activeList.length}·{progress}%</span>
+          <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#D3B87A", fontWeight: 700 }}>{doneCount}/{universe.length}·{progress}%</span>
 
           {!running ? <button onClick={runScan} style={{ background: "linear-gradient(135deg, #D3B87A 0%, #B8A060 100%)", border: "none", borderRadius: 8, padding: "8px 20px", fontSize: 12, fontWeight: 700, color: "#0B1120", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", boxShadow: "0 0 20px rgba(211,184,122,0.25), inset 0 1px 1px rgba(255,255,255,0.2)", letterSpacing: "0.02em" }}>
             {doneCount > 0 ? "↺ Re-scan" : "▶ Scan"}
           </button> : <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button onClick={() => { abortRef.current?.abort(); setRunning(false) }} style={{ background: "rgba(255,92,92,0.1)", border: "1px solid rgba(255,92,92,0.3)", borderRadius: 8, padding: "8px 14px", fontSize: 12, color: "#FF5C5C", cursor: "pointer", fontFamily: "'DM Sans',sans-serif", fontWeight: 600 }}>■ Stop</button>
-            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#FFB347", animation: "pulse 1.5s infinite" }}>Scanning {activeList[currentIdx]?.ticker}…</span>
+            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#FFB347", animation: "pulse 1.5s infinite" }}>Scanning {universe[currentIdx]?.ticker}…</span>
           </div>}
           {doneCount > 0 && !running && <button onClick={async () => { try { await window.storage.delete("ad3-results"); await window.storage.delete("ad3-research"); } catch {} setResults({}); setScanDate(null); setRData({}); setRSteps({}); }}
             style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 12px", fontSize: 11, color: "#4A6080", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>🗑</button>}
-
-          {/* Research All + Build Portfolio */}
-          {doneCount > 0 && !running && !researchAllRunning && apiKey && researchableCount > 0 &&
-            <button onClick={runResearchAll}
-              style={{ fontFamily: "'DM Sans',sans-serif", background: "linear-gradient(135deg, rgba(0,229,176,0.15), rgba(159,122,255,0.15))", border: "1px solid rgba(0,229,176,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 10, fontWeight: 700, color: "#00E5B0", cursor: "pointer", letterSpacing: "0.02em" }}>
-              ◈ Research All ({researchableCount})
-            </button>}
-          {doneCount > 0 && !running && !researchAllRunning && apiKey && researchedCount >= 3 &&
-            <button onClick={() => portfolioData ? setShowPortfolioPanel(!showPortfolioPanel) : buildPortfolio()}
-              style={{ fontFamily: "'DM Sans',sans-serif", background: portfolioBuildRunning ? "rgba(211,184,122,0.05)" : "linear-gradient(135deg, rgba(211,184,122,0.15), rgba(255,215,0,0.1))", border: "1px solid rgba(211,184,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 10, fontWeight: 700, color: "#D3B87A", cursor: portfolioBuildRunning ? "default" : "pointer", letterSpacing: "0.02em" }}>
-              {portfolioBuildRunning ? "Building…" : portfolioData ? "📊 Portfolio" : "🏗 Build Portfolio"}
-            </button>}
-          {researchAllRunning && <>
-            <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.08)" }} />
-            <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#00E5B0", fontWeight: 600 }}>◈ {researchAllProgress.ticker} ({researchAllProgress.current}/{researchAllProgress.total})</span>
-            <button onClick={() => { researchAllAbort.current?.abort(); setResearchAllRunning(false); }}
-              style={{ fontFamily: "'DM Sans',sans-serif", background: "rgba(255,92,92,0.1)", border: "1px solid rgba(255,92,92,0.3)", borderRadius: 8, padding: "6px 12px", fontSize: 10, color: "#FF5C5C", cursor: "pointer", fontWeight: 600 }}>■ Stop</button>
-          </>}
 
           <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.08)" }} />
 
@@ -958,7 +699,7 @@ function AlphaDeskV3() {
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* ── SIDEBAR ── */}
         <div style={{ width: 210, background: "linear-gradient(180deg, #0E1628 0%, #0B1222 100%)", borderRight: "1px solid rgba(255,255,255,0.05)", overflowY: "auto", flexShrink: 0 }}>
-          {activeGroupList.map(group => { const g = activeGroups[group]; const stocks = activeList.filter(s => s.group === group); if (!stocks.length) return null;
+          {activeGroupList.map(group => { const g = activeGroups[group]; const stocks = universe.filter(s => s.group === group); if (!stocks.length) return null;
             return <div key={group}>
               <div style={{ padding: "10px 14px 6px", fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: g.color, letterSpacing: "0.2em", fontWeight: 700, borderBottom: "1px solid rgba(255,255,255,0.04)", position: "sticky", top: 0, background: "#0E1628", zIndex: 1, textTransform: "uppercase" }}>{g.icon} {group}</div>
               {stocks.map(stock => { const r = results[stock.ticker], st = r?.status, score = r?.scorecard?.finalScore, dd = r?.scorecard?.drawdown, isSel = selectedTicker === stock.ticker, hasR = !!rData[stock.ticker];
@@ -1019,7 +760,6 @@ function AlphaDeskV3() {
                     {(buckets["Buy Zone"] || []).map(s => <div key={s.ticker} onClick={() => { setSelectedTicker(s.ticker); setDetailTab("scorecard"); }} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 4, cursor: "pointer" }}>
                       <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 800, color: "#00C49A" }}>{s.ticker}</span>
                       <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 13, fontWeight: 700 }}>{s.scorecard.finalScore}</span>
-                      {s.scorecard.drawdown !== null && <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: s.scorecard.drawdown < -10 ? "#FF5C5C" : "#00C49A", fontWeight: 600 }}>{s.scorecard.drawdown}%</span>}
                       {s.scorecard.dcfPct !== null && <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: s.scorecard.dcfPct > 0 ? "#00C49A" : "#FF5C5C", fontWeight: 600 }}>DCF{s.scorecard.dcfPct > 0 ? "+" : ""}{s.scorecard.dcfPct}%</span>}
                     </div>)}
                     {!(buckets["Buy Zone"] || []).length && <div style={{ fontSize: 10, color: "#1E2A3A", fontStyle: "italic" }}>None</div>}
@@ -1030,7 +770,6 @@ function AlphaDeskV3() {
                     {(buckets["Wait"] || []).map(s => <div key={s.ticker} onClick={() => { setSelectedTicker(s.ticker); setDetailTab("scorecard"); }} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 4, cursor: "pointer" }}>
                       <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 800, color: "#FF5C5C" }}>{s.ticker}</span>
                       <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 13, fontWeight: 700 }}>{s.scorecard.finalScore}</span>
-                      {s.scorecard.drawdown !== null && <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: s.scorecard.drawdown < -10 ? "#FF5C5C" : "#00C49A", fontWeight: 600 }}>{s.scorecard.drawdown}%</span>}
                       {s.scorecard.dcfPct !== null && <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#FF5C5C", fontWeight: 600 }}>DCF{s.scorecard.dcfPct > 0 ? "+" : ""}{s.scorecard.dcfPct}%</span>}
                     </div>)}
                     {!(buckets["Wait"] || []).length && <div style={{ fontSize: 10, color: "#1E2A3A", fontStyle: "italic" }}>None</div>}
@@ -1038,78 +777,6 @@ function AlphaDeskV3() {
                 </div>
               </div>
             </>}
-
-            {/* ═══════════ PORTFOLIO ANALYTICS ═══════════ */}
-            {showAnalytics && analyticsStocks.length > 0 && <div style={{ marginBottom: 18, animation: "fadeUp .3s" }}>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 700, color: mode === "proposed" ? "#FFD700" : "#00C49A", letterSpacing: "0.14em", marginBottom: 12 }}>
-                  {mode === "proposed" ? "📊 PROPOSED PORTFOLIO ANALYTICS" : "💼 REAL PORTFOLIO ANALYTICS"} — {analyticsStocks.length} positions
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8, marginBottom: 14 }}>
-                  {[
-                    ["Wtd Score", analyticsMetrics.wScore, C.gld],
-                    ["Wtd ROIC", analyticsMetrics.wROIC + "%", C.tel],
-                    ["Wtd Margin", analyticsMetrics.wMargin + "%", C.grn],
-                    ["Wtd Growth", analyticsMetrics.wGrowth + "%", C.pur],
-                    ["Wtd P/E", analyticsMetrics.wPE ? analyticsMetrics.wPE + "x" : "—", C.acc],
-                    ["Wtd FCF Yld", analyticsMetrics.wFCFY + "%", C.amb],
-                    ["Top 5 Conc.", analyticsTop5Weight + "%", "#FF6B8A"],
-                  ].map(([l, v, c]) => <div key={l} style={{ background: C.card, border: `1px solid ${c}25`, borderRadius: 8, padding: "10px 8px", textAlign: "center", borderTop: `2px solid ${c}` }}>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 8, color: "#4A6080", fontWeight: 600, marginBottom: 3, letterSpacing: "0.05em" }}>{l}</div>
-                    <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 16, fontWeight: 800, color: c }}>{v}</div>
-                  </div>)}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                  <div style={{ background: C.card, border: "1px solid rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 16px" }}>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.14em", color: C.acc, fontWeight: 700, marginBottom: 10 }}>SECTOR ALLOCATION</div>
-                    <PieChart data={analyticsSectors} size={130} />
-                  </div>
-                  <div style={{ background: C.card, border: "1px solid rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 16px" }}>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.14em", color: "#D3B87A", fontWeight: 700, marginBottom: 10 }}>MARKET CAP DISTRIBUTION</div>
-                    <PieChart data={analyticsCaps} size={130} />
-                  </div>
-                  <div style={{ background: C.card, border: "1px solid rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 16px" }}>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.14em", color: "#00C49A", fontWeight: 700, marginBottom: 10 }}>TOP HOLDINGS</div>
-                    {analyticsTopHoldings.map((h, i) => <div key={h.ticker} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#4A6080", minWidth: 12 }}>{i + 1}</span>
-                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 800, color: "#D8E2F0", minWidth: 44 }}>{h.ticker}</span>
-                      <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.04)", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ width: `${hasAnalyticsWeights ? (h.weight || 0) : Math.round(100 / analyticsStocks.length)}%`, height: "100%", background: "linear-gradient(90deg, #00C49A, #4DA3DB)", borderRadius: 3 }} />
-                      </div>
-                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 700, color: "#00C49A", minWidth: 30, textAlign: "right" }}>{hasAnalyticsWeights ? (h.weight || 0) + "%" : Math.round(100 / analyticsStocks.length) + "%"}</span>
-                      {h.scorecard && <ScoreRing score={h.scorecard.finalScore} size={26} stroke={2} />}
-                    </div>)}
-                  </div>
-                </div>
-            </div>}
-
-            {/* ═══════════ DELTA TRACKER ═══════════ */}
-            {deltas.length > 0 && <div style={{ marginBottom: 18 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                <button onClick={() => setShowDeltas(!showDeltas)} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 700, color: "#FF8C42", letterSpacing: "0.12em", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, padding: 0 }}>
-                  🔄 CHANGES SINCE LAST SCAN ({deltas.length}) {showDeltas ? "▾" : "▸"}
-                </button>
-                {prevScanDate && <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: "#3A4E68" }}>vs {new Date(prevScanDate).toLocaleDateString()}</span>}
-              </div>
-              {showDeltas && <div style={{ background: "rgba(14,18,32,0.6)", border: "1px solid rgba(255,140,66,0.15)", borderRadius: 12, overflow: "hidden", borderTop: "2px solid #FF8C42" }}>
-                {deltas.map((d, i) => <div key={d.ticker} onClick={() => { setSelectedTicker(d.ticker); setDetailTab("scorecard"); }}
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", borderBottom: i < deltas.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none", cursor: "pointer" }}
-                  className="row-hover">
-                  <div style={{ minWidth: 50 }}>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 800, color: "#D8E2F0" }}>{d.ticker}</div>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: "#4A6080" }}>{d.name}</div>
-                  </div>
-                  <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 14, fontWeight: 800, color: sc(d.score), minWidth: 28 }}>{d.score}</div>
-                  <Badge text={d.action} color={d.actionColor} />
-                  <div style={{ flex: 1, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {d.alerts.map((a, j) => <span key={j} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontWeight: 600,
-                      background: a.type === "danger" ? "rgba(255,92,92,0.12)" : a.type === "warning" ? "rgba(255,179,71,0.12)" : a.type === "positive" ? "rgba(0,196,154,0.12)" : "rgba(77,163,219,0.12)",
-                      color: a.type === "danger" ? "#FF5C5C" : a.type === "warning" ? "#FFB347" : a.type === "positive" ? "#00C49A" : "#4DA3DB",
-                      border: `1px solid ${a.type === "danger" ? "rgba(255,92,92,0.3)" : a.type === "warning" ? "rgba(255,179,71,0.3)" : a.type === "positive" ? "rgba(0,196,154,0.3)" : "rgba(77,163,219,0.3)"}`
-                    }}>{a.type === "danger" ? "▼ " : a.type === "warning" ? "⚠ " : a.type === "positive" ? "▲ " : "★ "}{a.msg}</span>)}
-                  </div>
-                </div>)}
-              </div>}
-            </div>}
 
             {/* Filters + Sort */}
             {doneCount > 1 && <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
@@ -1143,117 +810,13 @@ function AlphaDeskV3() {
                 </div> })}
             </div>}
 
-            {running && <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 18px", background: "rgba(61,142,255,0.04)", border: "1px solid rgba(61,142,255,0.15)", borderRadius: 10, marginTop: 12 }}><Spin size={14} color={C.acc} /><span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "#3D8EFF", fontWeight: 600 }}>Scanning {activeList[currentIdx]?.ticker}…</span></div>}
+            {running && <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 18px", background: "rgba(61,142,255,0.04)", border: "1px solid rgba(61,142,255,0.15)", borderRadius: 10, marginTop: 12 }}><Spin size={14} color={C.acc} /><span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "#3D8EFF", fontWeight: 600 }}>Scanning {universe[currentIdx]?.ticker}…</span></div>}
 
             {doneCount === 0 && !running && <div style={{ textAlign: "center", padding: "100px 20px" }}>
-              <div style={{ fontSize: 64, opacity: .06, marginBottom: 16 }}>{mode === "portfolio" ? "💼" : mode === "proposed" ? "📊" : "◈"}</div>
-              <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 18, color: "#4A6080", fontWeight: 700, marginBottom: 10 }}>
-                {mode === "portfolio" && activeList.length === 0 ? "Your portfolio is empty"
-                  : mode === "proposed" && activeList.length === 0 ? "No proposed portfolio yet — run Build Portfolio first"
-                  : `Ready to screen ${activeList.length} stocks`}
-              </div>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: "#2A3A50", maxWidth: 440, margin: "0 auto", lineHeight: 1.8 }}>
-                {mode === "portfolio" && activeList.length === 0
-                  ? "Use the search bar above to add your holdings. Select a group category for each stock."
-                  : mode === "proposed" && activeList.length === 0
-                  ? "Run a MSCI scan, then Deep Research All, then Build Portfolio to generate your proposed allocation."
-                  : <>Click <span style={{ color: "#D3B87A", fontWeight: 700 }}>▶ Scan</span> to fetch live data from FMP and score each stock. Use the search bar to add or remove stocks.</>}
-              </div>
+              <div style={{ fontSize: 64, opacity: .06, marginBottom: 16 }}>◈</div>
+              <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 18, color: "#4A6080", fontWeight: 700, marginBottom: 10 }}>Ready to screen {universe.length} stocks</div>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: "#2A3A50", maxWidth: 440, margin: "0 auto", lineHeight: 1.8 }}>Click <span style={{ color: "#D3B87A", fontWeight: 700 }}>▶ Scan</span> to fetch live data from FMP and score each stock. Use the search bar to add or remove stocks.</div>
             </div>}
-          </div>}
-
-          {/* ═══════════ PORTFOLIO STRATEGY PANEL ═══════════ */}
-          {showPortfolioPanel && portfolioData && !sel && <div style={{ animation: "fadeUp .3s ease" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <button onClick={() => setShowPortfolioPanel(false)} style={{ fontFamily: "'DM Sans',sans-serif", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7, padding: "6px 14px", fontSize: 11, color: "#4A6080", cursor: "pointer", fontWeight: 600 }}>← Back</button>
-              <span style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 20, fontWeight: 800, color: "#D3B87A" }}>📊 {portfolioData.portfolioName || "AI Portfolio Strategy"}</span>
-              <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-                <button onClick={buildPortfolio} style={{ fontFamily: "'DM Sans',sans-serif", background: "transparent", border: "1px solid rgba(211,184,122,0.3)", borderRadius: 8, padding: "8px 16px", fontSize: 11, fontWeight: 700, color: "#D3B87A", cursor: portfolioBuildRunning ? "default" : "pointer" }}>{portfolioBuildRunning ? "Rebuilding…" : "↺ Rebuild"}</button>
-              </div>
-            </div>
-
-            {/* Strategy Overview */}
-            <div style={{ background: C.card, border: "1px solid rgba(211,184,122,0.25)", borderRadius: 12, padding: "18px 20px", marginBottom: 16, borderTop: "2px solid #D3B87A" }}>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: "#D3B87A", fontWeight: 700, marginBottom: 10 }}>STRATEGY</div>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "#8A9BB0", lineHeight: 1.8, whiteSpace: "pre-line" }}>{portfolioData.strategy}</div>
-            </div>
-
-            {/* Key Metrics */}
-            {portfolioData.estimatedPortfolioMetrics && <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 16 }}>
-              {[["Target CAGR", portfolioData.targetCAGR, C.grn], ["Wtd ROIC", portfolioData.estimatedPortfolioMetrics.weightedROIC, C.tel], ["Wtd Growth", portfolioData.estimatedPortfolioMetrics.weightedGrowth, C.pur], ["Avg Score", portfolioData.estimatedPortfolioMetrics.avgScore, C.acc]].map(([l, v, c]) =>
-                <div key={l} className="glow-card" style={{ background: C.card, border: `1px solid ${c}30`, borderRadius: 10, padding: "14px", textAlign: "center", borderTop: `2px solid ${c}` }}>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: "#4A6080", fontWeight: 600, marginBottom: 4 }}>{l}</div>
-                  <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 20, fontWeight: 800, color: c }}>{v}</div>
-                </div>)}
-            </div>}
-
-            {/* Positions Table */}
-            <div style={{ background: C.card, border: "1px solid rgba(255,255,255,0.05)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
-              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: "#D3B87A", fontWeight: 700, padding: "14px 18px", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(10,13,24,0.8)" }}>RECOMMENDED POSITIONS</div>
-              {(portfolioData.positions || []).map((pos, i) => {
-                const stockResult = results[pos.ticker];
-                const score = stockResult?.scorecard?.finalScore;
-                return <div key={pos.ticker} style={{ display: "grid", gridTemplateColumns: "30px 60px 1fr 60px 80px 60px", gap: 12, padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.03)", alignItems: "center", cursor: "pointer" }}
-                  onClick={() => { setSelectedTicker(pos.ticker); setDetailTab("scorecard"); setShowPortfolioPanel(false); }}>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: i < 5 ? "#D3B87A" : "#4A6080", fontWeight: i < 5 ? 800 : 500 }}>{i + 1}</div>
-                  <div>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, fontWeight: 800, color: "#D8E2F0" }}>{pos.ticker}</div>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, color: "#4A6080" }}>{pos.name}</div>
-                  </div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "#8A9BB0", lineHeight: 1.5 }}>{pos.rationale}</div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 18, fontWeight: 800, color: "#D3B87A" }}>{pos.weight}%</div>
-                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 8, color: "#4A6080" }}>weight</div>
-                  </div>
-                  <div><Badge text={pos.conviction} color={pos.conviction === "High" ? C.grn : C.amb} /></div>
-                  {score && <div style={{ textAlign: "center" }}><ScoreRing score={score} size={34} stroke={3} /></div>}
-                </div> })}
-              {portfolioData.cashReserve > 0 && <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 18px", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "#4A6080" }}>💵 Cash Reserve</span>
-                <span style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 16, fontWeight: 800, color: "#4A6080" }}>{portfolioData.cashReserve}%</span>
-              </div>}
-            </div>
-
-            {/* Sector Exposure + Deployment */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-              {portfolioData.sectorExposure && <div style={{ background: C.card, border: `1px solid ${C.acc}30`, borderRadius: 10, padding: "16px 18px", borderTop: `2px solid ${C.acc}` }}>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: C.acc, fontWeight: 700, marginBottom: 10 }}>SECTOR EXPOSURE</div>
-                {Object.entries(portfolioData.sectorExposure).sort((a, b) => b[1] - a[1]).map(([sector, pct]) =>
-                  <div key={sector} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "#8A9BB0" }}>{sector}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 60, height: 4, background: "rgba(255,255,255,0.04)", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ width: `${pct}%`, height: "100%", background: C.acc, borderRadius: 3 }} />
-                      </div>
-                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, fontWeight: 700, color: C.acc, minWidth: 28 }}>{pct}%</span>
-                    </div>
-                  </div>)}
-              </div>}
-              <div style={{ background: C.card, border: `1px solid ${C.grn}30`, borderRadius: 10, padding: "16px 18px", borderTop: `2px solid ${C.grn}` }}>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: C.grn, fontWeight: 700, marginBottom: 10 }}>DEPLOYMENT PLAN ($3M/yr)</div>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "#8A9BB0", lineHeight: 1.8, whiteSpace: "pre-line" }}>{portfolioData.deploymentPlan}</div>
-              </div>
-            </div>
-
-            {/* Risk + Monitoring */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-              <div style={{ background: C.card, border: `1px solid ${C.red}30`, borderRadius: 10, padding: "16px 18px", borderTop: `2px solid ${C.red}` }}>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: C.red, fontWeight: 700, marginBottom: 10 }}>RISK MANAGEMENT</div>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "#8A9BB0", lineHeight: 1.8, whiteSpace: "pre-line" }}>{portfolioData.riskManagement}</div>
-                {portfolioData.thesisInvalidators && <>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.14em", color: "#FF5C5C", fontWeight: 700, marginTop: 12, marginBottom: 6 }}>THESIS INVALIDATORS</div>
-                  {portfolioData.thesisInvalidators.map((t, i) => <div key={i} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "#8A9BB0", marginBottom: 4, display: "flex", gap: 6 }}><span style={{ color: "#FF5C5C" }}>✗</span> {t}</div>)}
-                </>}
-              </div>
-              <div style={{ background: C.card, border: `1px solid ${C.amb}30`, borderRadius: 10, padding: "16px 18px", borderTop: `2px solid ${C.amb}` }}>
-                <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: C.amb, fontWeight: 700, marginBottom: 10 }}>MONITORING TRIGGERS</div>
-                {(portfolioData.keyMonitoringTriggers || []).map((t, i) => <div key={i} style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: "#8A9BB0", marginBottom: 6, display: "flex", gap: 6 }}><span style={{ color: "#D3B87A" }}>◈</span> {t}</div>)}
-                {portfolioData.rebalancingStrategy && <>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.14em", color: "#D3B87A", fontWeight: 700, marginTop: 12, marginBottom: 6 }}>REBALANCING</div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: "#8A9BB0", lineHeight: 1.8 }}>{portfolioData.rebalancingStrategy}</div>
-                </>}
-              </div>
-            </div>
           </div>}
 
           {/* ═══════════ DETAIL PANEL ═══════════ */}
@@ -1454,6 +1017,7 @@ function AlphaDeskV3() {
     </div>
   );
 }
+
 
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AlphaDeskV3));
 </script>
