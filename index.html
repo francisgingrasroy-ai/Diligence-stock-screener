@@ -11,27 +11,10 @@
 <script>
 if (!window.storage) {
   window.storage = {
-    async get(key) {
-      const v = localStorage.getItem(key);
-      if (v === null) return null;
-      return { key, value: v };
-    },
-    async set(key, value) {
-      localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
-      return { key, value };
-    },
-    async delete(key) {
-      localStorage.removeItem(key);
-      return { key, deleted: true };
-    },
-    async list(prefix) {
-      const keys = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!prefix || k.startsWith(prefix)) keys.push(k);
-      }
-      return { keys };
-    }
+    async get(key) { const v = localStorage.getItem(key); if (v === null) return null; return { key, value: v }; },
+    async set(key, value) { localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value)); return { key, value }; },
+    async delete(key) { localStorage.removeItem(key); return { key, deleted: true }; },
+    async list(prefix) { const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (!prefix || k.startsWith(prefix)) keys.push(k); } return { keys }; }
   };
 }
 </script>
@@ -835,6 +818,35 @@ function AlphaDeskV3() {
     });
   }
 
+  // Precompute research counts for header buttons
+  const qualActsForResearch = ["Strong Conviction", "Value Entry", "Buy Zone", "Research"];
+  const researchableCount = activeList.filter(s => { const r = results[s.ticker]; return r?.status === "done" && r.scorecard?.action && qualActsForResearch.includes(r.scorecard.action) && !rData[s.ticker]?.synthesis; }).length;
+  const researchedCount = Object.keys(rData).filter(t => rData[t]?.synthesis).length;
+
+  // Precompute portfolio analytics
+  const showAnalytics = (mode === "proposed" || mode === "portfolio") && doneCount > 0;
+  const analyticsStocks = showAnalytics ? activeList.filter(s => results[s.ticker]?.status === "done").map(s => ({ ...s, ...results[s.ticker] })) : [];
+  const hasAnalyticsWeights = mode === "proposed" && analyticsStocks.some(s => s.weight);
+  const analyticsTotalWeight = hasAnalyticsWeights ? analyticsStocks.reduce((sum, s) => sum + (s.weight || 0), 0) : 0;
+  const getAnalyticsWeight = s => hasAnalyticsWeights ? ((s.weight || 0) / (analyticsTotalWeight || 1)) : (1 / (analyticsStocks.length || 1));
+
+  let analyticsSectors = [], analyticsCaps = [], analyticsMetrics = {}, analyticsTopHoldings = [], analyticsTop5Weight = 0;
+  if (analyticsStocks.length > 0) {
+    const sectors = {};
+    analyticsStocks.forEach(s => { const sec = s.raw?.sector || s.group || "Other"; sectors[sec] = (sectors[sec] || 0) + getAnalyticsWeight(s) * 100; });
+    analyticsSectors = Object.entries(sectors).sort((a, b) => b[1] - a[1]).map(([label, value], i) => ({ label, value: Math.round(value * 10) / 10, color: PIE_COLORS[i % PIE_COLORS.length] }));
+
+    const capDist = {};
+    analyticsStocks.forEach(s => { const mc = s.raw?.marketCap || 0; const tier = CAP_TIERS.find(t => mc >= t.min) || CAP_TIERS[CAP_TIERS.length - 1]; capDist[tier.label] = (capDist[tier.label] || 0) + getAnalyticsWeight(s) * 100; });
+    analyticsCaps = CAP_TIERS.filter(t => capDist[t.label]).map(t => ({ label: t.label, value: Math.round((capDist[t.label] || 0) * 10) / 10, color: t.color }));
+
+    let wROIC = 0, wMargin = 0, wGrowth = 0, wScore = 0, wPE = 0, wFCFY = 0, peCount = 0;
+    analyticsStocks.forEach(s => { const w = getAnalyticsWeight(s); wROIC += (parseFloat(s.raw?.roic5yr) || 0) * w; wMargin += (parseFloat(s.raw?.grossMargin) || 0) * w; wGrowth += (parseFloat(s.raw?.revenueGrowth3yr) || 0) * w; wScore += (s.scorecard?.finalScore || 0) * w; if (s.raw?.peRatio && s.raw.peRatio > 0) { wPE += s.raw.peRatio * w; peCount += w; } wFCFY += (s.raw?.fcfYield || 0) * w; });
+    analyticsTopHoldings = hasAnalyticsWeights ? [...analyticsStocks].sort((a, b) => (b.weight || 0) - (a.weight || 0)).slice(0, 5) : [...analyticsStocks].sort((a, b) => (b.scorecard?.finalScore || 0) - (a.scorecard?.finalScore || 0)).slice(0, 5);
+    analyticsTop5Weight = hasAnalyticsWeights ? analyticsTopHoldings.reduce((s, h) => s + (h.weight || 0), 0) : Math.round((5 / analyticsStocks.length) * 100);
+    analyticsMetrics = { wScore: Math.round(wScore), wROIC: Math.round(wROIC * 10) / 10, wMargin: Math.round(wMargin * 10) / 10, wGrowth: Math.round(wGrowth * 10) / 10, wPE: peCount > 0 ? Math.round((wPE / peCount) * 10) / 10 : null, wFCFY: Math.round(wFCFY * 10) / 10 };
+  }
+
   return (
     <div style={{ fontFamily: "'Georgia','Times New Roman',serif", background: `linear-gradient(180deg, #0A1020 0%, #0E1628 50%, #0B1222 100%)`, height: "100vh", color: "#D8E2F0", display: "flex", flexDirection: "column" }}>
       <style>{`
@@ -907,22 +919,16 @@ function AlphaDeskV3() {
             style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 12px", fontSize: 11, color: "#4A6080", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>🗑</button>}
 
           {/* Research All + Build Portfolio */}
-          {doneCount > 0 && !running && !researchAllRunning && apiKey && (() => {
-            const qualActs = ["Strong Conviction", "Value Entry", "Buy Zone", "Research"];
-            const researchCount = activeList.filter(s => { const r = results[s.ticker]; return r?.status === "done" && r.scorecard?.action && qualActs.includes(r.scorecard.action) && !rData[s.ticker]?.synthesis; }).length;
-            const researchedCount = Object.keys(rData).filter(t => rData[t]?.synthesis).length;
-            return <>
-            <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.08)" }} />
-            {researchCount > 0 && <button onClick={runResearchAll}
+          {doneCount > 0 && !running && !researchAllRunning && apiKey && researchableCount > 0 &&
+            <button onClick={runResearchAll}
               style={{ fontFamily: "'DM Sans',sans-serif", background: "linear-gradient(135deg, rgba(0,229,176,0.15), rgba(159,122,255,0.15))", border: "1px solid rgba(0,229,176,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 10, fontWeight: 700, color: "#00E5B0", cursor: "pointer", letterSpacing: "0.02em" }}>
-              ◈ Research All ({researchCount})
+              ◈ Research All ({researchableCount})
             </button>}
-            {researchedCount >= 3 && <button onClick={() => portfolioData ? setShowPortfolioPanel(!showPortfolioPanel) : buildPortfolio()}
+          {doneCount > 0 && !running && !researchAllRunning && apiKey && researchedCount >= 3 &&
+            <button onClick={() => portfolioData ? setShowPortfolioPanel(!showPortfolioPanel) : buildPortfolio()}
               style={{ fontFamily: "'DM Sans',sans-serif", background: portfolioBuildRunning ? "rgba(211,184,122,0.05)" : "linear-gradient(135deg, rgba(211,184,122,0.15), rgba(255,215,0,0.1))", border: "1px solid rgba(211,184,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 10, fontWeight: 700, color: "#D3B87A", cursor: portfolioBuildRunning ? "default" : "pointer", letterSpacing: "0.02em" }}>
               {portfolioBuildRunning ? "Building…" : portfolioData ? "📊 Portfolio" : "🏗 Build Portfolio"}
             </button>}
-          </>;
-          })()}
           {researchAllRunning && <>
             <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.08)" }} />
             <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#00E5B0", fontWeight: 600 }}>◈ {researchAllProgress.ticker} ({researchAllProgress.current}/{researchAllProgress.total})</span>
@@ -1034,99 +1040,47 @@ function AlphaDeskV3() {
             </>}
 
             {/* ═══════════ PORTFOLIO ANALYTICS ═══════════ */}
-            {(mode === "proposed" || mode === "portfolio") && doneCount > 0 && (() => {
-              // Compute analytics from scanned data
-              const scannedStocks = activeList.filter(s => results[s.ticker]?.status === "done").map(s => ({ ...s, ...results[s.ticker] }));
-              if (scannedStocks.length === 0) return null;
-
-              // Weights: use explicit weight if available (proposed), else equal weight
-              const hasWeights = mode === "proposed" && scannedStocks.some(s => s.weight);
-              const totalExplicitWeight = hasWeights ? scannedStocks.reduce((sum, s) => sum + (s.weight || 0), 0) : 0;
-              const getWeight = s => hasWeights ? ((s.weight || 0) / (totalExplicitWeight || 1)) : (1 / scannedStocks.length);
-
-              // Sector allocation
-              const sectors = {};
-              scannedStocks.forEach(s => {
-                const sec = s.raw?.sector || s.group || "Other";
-                sectors[sec] = (sectors[sec] || 0) + getWeight(s) * 100;
-              });
-              const sectorData = Object.entries(sectors).sort((a, b) => b[1] - a[1]).map(([label, value], i) => ({ label, value: Math.round(value * 10) / 10, color: PIE_COLORS[i % PIE_COLORS.length] }));
-
-              // Market cap distribution
-              const capDist = {};
-              scannedStocks.forEach(s => {
-                const mc = s.raw?.marketCap || 0;
-                const tier = CAP_TIERS.find(t => mc >= t.min) || CAP_TIERS[CAP_TIERS.length - 1];
-                capDist[tier.label] = (capDist[tier.label] || 0) + getWeight(s) * 100;
-              });
-              const capData = CAP_TIERS.filter(t => capDist[t.label]).map(t => ({ label: t.label, value: Math.round((capDist[t.label] || 0) * 10) / 10, color: t.color }));
-
-              // Aggregate metrics (weighted)
-              let wROIC = 0, wMargin = 0, wGrowth = 0, wScore = 0, wPE = 0, wFCFY = 0, wDivY = 0, peCount = 0, divCount = 0;
-              scannedStocks.forEach(s => {
-                const w = getWeight(s);
-                wROIC += (parseFloat(s.raw?.roic5yr) || 0) * w;
-                wMargin += (parseFloat(s.raw?.grossMargin) || 0) * w;
-                wGrowth += (parseFloat(s.raw?.revenueGrowth3yr) || 0) * w;
-                wScore += (s.scorecard?.finalScore || 0) * w;
-                if (s.raw?.peRatio && s.raw.peRatio > 0) { wPE += s.raw.peRatio * w; peCount += w; }
-                if (s.raw?.fcfYield) wFCFY += s.raw.fcfYield * w;
-              });
-
-              // Top holdings
-              const topHoldings = hasWeights
-                ? [...scannedStocks].sort((a, b) => (b.weight || 0) - (a.weight || 0)).slice(0, 5)
-                : [...scannedStocks].sort((a, b) => (b.scorecard?.finalScore || 0) - (a.scorecard?.finalScore || 0)).slice(0, 5);
-              const top5Weight = hasWeights
-                ? topHoldings.reduce((s, h) => s + (h.weight || 0), 0)
-                : Math.round((5 / scannedStocks.length) * 100);
-
-              return <div style={{ marginBottom: 18, animation: "fadeUp .3s" }}>
+            {showAnalytics && analyticsStocks.length > 0 && <div style={{ marginBottom: 18, animation: "fadeUp .3s" }}>
                 <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 700, color: mode === "proposed" ? "#FFD700" : "#00C49A", letterSpacing: "0.14em", marginBottom: 12 }}>
-                  {mode === "proposed" ? "📊 PROPOSED PORTFOLIO ANALYTICS" : "💼 REAL PORTFOLIO ANALYTICS"} — {scannedStocks.length} positions
+                  {mode === "proposed" ? "📊 PROPOSED PORTFOLIO ANALYTICS" : "💼 REAL PORTFOLIO ANALYTICS"} — {analyticsStocks.length} positions
                 </div>
-
-                {/* Key Metrics Row */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8, marginBottom: 14 }}>
                   {[
-                    ["Wtd Score", Math.round(wScore), C.gld],
-                    ["Wtd ROIC", Math.round(wROIC * 10) / 10 + "%", C.tel],
-                    ["Wtd Margin", Math.round(wMargin * 10) / 10 + "%", C.grn],
-                    ["Wtd Growth", Math.round(wGrowth * 10) / 10 + "%", C.pur],
-                    ["Wtd P/E", peCount > 0 ? Math.round((wPE / peCount) * 10) / 10 + "x" : "—", C.acc],
-                    ["Wtd FCF Yld", Math.round(wFCFY * 10) / 10 + "%", C.amb],
-                    ["Top 5 Conc.", top5Weight + "%", "#FF6B8A"],
+                    ["Wtd Score", analyticsMetrics.wScore, C.gld],
+                    ["Wtd ROIC", analyticsMetrics.wROIC + "%", C.tel],
+                    ["Wtd Margin", analyticsMetrics.wMargin + "%", C.grn],
+                    ["Wtd Growth", analyticsMetrics.wGrowth + "%", C.pur],
+                    ["Wtd P/E", analyticsMetrics.wPE ? analyticsMetrics.wPE + "x" : "—", C.acc],
+                    ["Wtd FCF Yld", analyticsMetrics.wFCFY + "%", C.amb],
+                    ["Top 5 Conc.", analyticsTop5Weight + "%", "#FF6B8A"],
                   ].map(([l, v, c]) => <div key={l} style={{ background: C.card, border: `1px solid ${c}25`, borderRadius: 8, padding: "10px 8px", textAlign: "center", borderTop: `2px solid ${c}` }}>
                     <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 8, color: "#4A6080", fontWeight: 600, marginBottom: 3, letterSpacing: "0.05em" }}>{l}</div>
                     <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 16, fontWeight: 800, color: c }}>{v}</div>
                   </div>)}
                 </div>
-
-                {/* Pie Charts + Top Holdings */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
                   <div style={{ background: C.card, border: "1px solid rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 16px" }}>
                     <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.14em", color: C.acc, fontWeight: 700, marginBottom: 10 }}>SECTOR ALLOCATION</div>
-                    <PieChart data={sectorData} size={130} />
+                    <PieChart data={analyticsSectors} size={130} />
                   </div>
                   <div style={{ background: C.card, border: "1px solid rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 16px" }}>
                     <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.14em", color: "#D3B87A", fontWeight: 700, marginBottom: 10 }}>MARKET CAP DISTRIBUTION</div>
-                    <PieChart data={capData} size={130} />
+                    <PieChart data={analyticsCaps} size={130} />
                   </div>
                   <div style={{ background: C.card, border: "1px solid rgba(255,255,255,0.05)", borderRadius: 10, padding: "14px 16px" }}>
                     <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 9, letterSpacing: "0.14em", color: "#00C49A", fontWeight: 700, marginBottom: 10 }}>TOP HOLDINGS</div>
-                    {topHoldings.map((h, i) => <div key={h.ticker} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    {analyticsTopHoldings.map((h, i) => <div key={h.ticker} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                       <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#4A6080", minWidth: 12 }}>{i + 1}</span>
                       <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 800, color: "#D8E2F0", minWidth: 44 }}>{h.ticker}</span>
                       <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.04)", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ width: `${hasWeights ? (h.weight || 0) : Math.round(100 / scannedStocks.length)}%`, height: "100%", background: `linear-gradient(90deg, #00C49A, #4DA3DB)`, borderRadius: 3 }} />
+                        <div style={{ width: `${hasAnalyticsWeights ? (h.weight || 0) : Math.round(100 / analyticsStocks.length)}%`, height: "100%", background: "linear-gradient(90deg, #00C49A, #4DA3DB)", borderRadius: 3 }} />
                       </div>
-                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 700, color: "#00C49A", minWidth: 30, textAlign: "right" }}>{hasWeights ? (h.weight || 0) + "%" : Math.round(100 / scannedStocks.length) + "%"}</span>
+                      <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 700, color: "#00C49A", minWidth: 30, textAlign: "right" }}>{hasAnalyticsWeights ? (h.weight || 0) + "%" : Math.round(100 / analyticsStocks.length) + "%"}</span>
                       {h.scorecard && <ScoreRing score={h.scorecard.finalScore} size={26} stroke={2} />}
                     </div>)}
                   </div>
                 </div>
-              </div>;
-            })()}
+            </div>}
 
             {/* ═══════════ DELTA TRACKER ═══════════ */}
             {deltas.length > 0 && <div style={{ marginBottom: 18 }}>
@@ -1500,3 +1454,8 @@ function AlphaDeskV3() {
     </div>
   );
 }
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AlphaDeskV3));
+</script>
+</body>
+</html>
