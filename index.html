@@ -9,7 +9,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script>
-// ─── localStorage polyfill for window.storage (Claude artifact API compatibility) ───
 if (!window.storage) {
   window.storage = {
     async get(key) {
@@ -672,8 +671,12 @@ function AlphaDeskV3() {
     researchAllAbort.current = new AbortController();
     setResearchAllRunning(true);
 
-    // Get all scanned stocks that don't have complete research yet
-    const candidates = activeList.filter(s => results[s.ticker]?.status === "done" && !rData[s.ticker]?.synthesis);
+    // Only research stocks with qualifying actions (regardless of mode)
+    const qualifyingActions = ["Strong Conviction", "Value Entry", "Buy Zone", "Research"];
+    const candidates = activeList.filter(s => {
+      const r = results[s.ticker];
+      return r?.status === "done" && r.scorecard?.action && qualifyingActions.includes(r.scorecard.action) && !rData[s.ticker]?.synthesis;
+    });
     setResearchAllProgress({ current: 0, total: candidates.length, ticker: "" });
 
     for (let idx = 0; idx < candidates.length; idx++) {
@@ -904,17 +907,22 @@ function AlphaDeskV3() {
             style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: "8px 12px", fontSize: 11, color: "#4A6080", cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}>🗑</button>}
 
           {/* Research All + Build Portfolio */}
-          {doneCount > 0 && !running && !researchAllRunning && apiKey && <>
+          {doneCount > 0 && !running && !researchAllRunning && apiKey && (() => {
+            const qualActs = ["Strong Conviction", "Value Entry", "Buy Zone", "Research"];
+            const researchCount = activeList.filter(s => { const r = results[s.ticker]; return r?.status === "done" && r.scorecard?.action && qualActs.includes(r.scorecard.action) && !rData[s.ticker]?.synthesis; }).length;
+            const researchedCount = Object.keys(rData).filter(t => rData[t]?.synthesis).length;
+            return <>
             <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.08)" }} />
-            {!researchAllRunning && <button onClick={runResearchAll}
+            {researchCount > 0 && <button onClick={runResearchAll}
               style={{ fontFamily: "'DM Sans',sans-serif", background: "linear-gradient(135deg, rgba(0,229,176,0.15), rgba(159,122,255,0.15))", border: "1px solid rgba(0,229,176,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 10, fontWeight: 700, color: "#00E5B0", cursor: "pointer", letterSpacing: "0.02em" }}>
-              ◈ Research All
+              ◈ Research All ({researchCount})
             </button>}
-            {Object.keys(rData).filter(t => rData[t]?.synthesis).length >= 3 && <button onClick={() => portfolioData ? setShowPortfolioPanel(!showPortfolioPanel) : buildPortfolio()}
+            {researchedCount >= 3 && <button onClick={() => portfolioData ? setShowPortfolioPanel(!showPortfolioPanel) : buildPortfolio()}
               style={{ fontFamily: "'DM Sans',sans-serif", background: portfolioBuildRunning ? "rgba(211,184,122,0.05)" : "linear-gradient(135deg, rgba(211,184,122,0.15), rgba(255,215,0,0.1))", border: "1px solid rgba(211,184,122,0.3)", borderRadius: 8, padding: "6px 14px", fontSize: 10, fontWeight: 700, color: "#D3B87A", cursor: portfolioBuildRunning ? "default" : "pointer", letterSpacing: "0.02em" }}>
               {portfolioBuildRunning ? "Building…" : portfolioData ? "📊 Portfolio" : "🏗 Build Portfolio"}
             </button>}
-          </>}
+          </>;
+          })()}
           {researchAllRunning && <>
             <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.08)" }} />
             <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, color: "#00E5B0", fontWeight: 600 }}>◈ {researchAllProgress.ticker} ({researchAllProgress.current}/{researchAllProgress.total})</span>
@@ -1492,8 +1500,3 @@ function AlphaDeskV3() {
     </div>
   );
 }
-
-ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AlphaDeskV3));
-</script>
-</body>
-</html>
